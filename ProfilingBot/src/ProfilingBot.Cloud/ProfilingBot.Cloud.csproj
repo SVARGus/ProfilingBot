@@ -12,6 +12,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Telegram.Bot" Version="22.7.6-dev.9" />
+    <PackageReference Include="Yandex.Cloud.Functions.AspNetCoreServer" Version="0.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ProfilingBot.Core\ProfilingBot.Core.csproj" />
   </ItemGroup>
 
