@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/docs
+/.env.development.local
+/config/appsettings-bot.json
+/ProfilingBot/src/ProfilingBot.Cloud/Properties/launchSettings.json

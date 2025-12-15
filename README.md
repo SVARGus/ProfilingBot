@@ -11,7 +11,7 @@
 - Любой пол, образование и опыт работы
 
 ### Основной функционал
-1. Последовательное прохождение 8 вопросов с 4 вариантами ответов каждый
+1. Последовательное прохождение 8 вопросов с 5 вариантами ответов каждый
 2. Автоматический расчет типа личности
 3. Генерация персонализированной карточки с результатами
 4. Возможность пересылки результатов и размещения в сторис
@@ -30,18 +30,18 @@
 ### Этап 1: MVP в Yandex Cloud (2-3 недели)
 
 #### Неделя 1: Базовая инфраструктура
-- [ ] Создание бота в @BotFather
-- [ ] Настройка Yandex Cloud Functions
+- [x] Создание бота в @BotFather
+- [x] Настройка Yandex Cloud Functions
 - [x] Проектная структура .NET 8
-- [ ] Базовый вебхук для Telegram
-- [ ] Система конфигурации из JSON файлов
+- [x] Базовый вебхук для Telegram
+- [x] Система конфигурации из JSON файлов
 
 #### Неделя 2: Ядро тестирования
-- [ ] Система загрузки вопросов из `questions.json`
-- [ ] Механизм последовательного опроса
-- [ ] Обработка ответов пользователей
-- [ ] Сохранение сессий в JSON файлы
-- [ ] Базовая логика расчета результатов
+- [x] Система загрузки вопросов из `questions.json`
+- [x] Механизм последовательного опроса
+- [x] Обработка ответов пользователей
+- [x] Сохранение сессий в JSON файлы
+- [x] Базовая логика расчета результатов
 
 #### Неделя 3: Результаты и интерфейс
 - [ ] Генерация текстовых результатов
@@ -86,49 +86,84 @@
 
 ```
 profiling-bot/
-├── src/
-│   ├── ProfilingBot.Core/              # Бизнес-логика
-│   │   ├── Services/
-│   │   │   ├── ITestService.cs
-│   │   │   ├── PersonalityCalculator.cs
-│   │   │   └── ResultGenerator.cs
-│   │   ├── Models/
-│   │   │   ├── TestSession.cs
-│   │   │   ├── Question.cs
-│   │   │   └── PersonalityType.cs
-│   │   └── Interfaces/
-│   │
-│   ├── ProfilingBot.Api/               # ASP.NET Core Web API
-│   │   ├── Controllers/
-│   │   │   ├── BotController.cs
-│   │   │   └── AdminController.cs
-│   │   ├── Middleware/
-│   │   └── Program.cs
-│   │
-│   └── ProfilingBot.Cloud/             # Yandex Cloud Functions
-│       ├── Functions/
-│       │   └── BotFunction.cs
-│       └── YandexServices/
+├── scripts/                            # Скрипты (пока не реализованы)
+│   ├── create-folders.ps1              # Создание папок через PowerShal
+│   ├── create-folders.sh               # Создание папок на Linux (bash)
+│   └── prepare-environment.ps1         # 
+│
+├── .env.development.local              # ДЛЯ РАЗРАБОТКИ (в .gitignore!)
+├── .env.production                     # ДЛЯ ПРОДАКШЕН (шаблон)
+│
+├── ProfilingBot/
+│   └── src/
+│       ├── ProfilingBot.Core/                      # Бизнес-логика (реализована, по необходимости правим)
+│       │   ├── Services/
+│       │   │   ├── FileStorageService.cs           # Сервис сохранения результатов
+│       │   │   ├── FileConfigurationService.cs     # Сервис загрузки конфигураций теста
+│       │   │   ├── TestService.cs                  # Сервис тестирования
+│       │   │   ├── FileLoggerService.cs            # Простой логгер
+│       │   │   └── ResultGenerator.cs              # Генератор результатов
+│       │   ├── Models/
+│       │   │   ├── AnswerOption.cs
+│       │   │   ├── Question.cs
+│       │   │   ├── TestSession.cs
+│       │   │   ├── TestResult.cs
+│       │   │   └── PersonalityType.cs
+│       │   └── Interfaces/
+│       │       ├── ITestService.cs
+│       │       ├── IResultGeneratorService.cs
+│       │       ├── ILoggerService.cs
+│       │       ├── IConfigurationService.cs
+│       │       └── IStorageService.cs
+│       │
+│       ├── ProfilingBot.Api/               # ASP.NET Core Web API (не реализована, пока наброски)
+│       │   ├── Controllers/
+│       │   │   ├── BotController.cs        
+│       │   │   └── AdminController.cs
+│       │   ├── Middleware/
+│       │   └── Program.cs
+│       │
+│       └── ProfilingBot.Cloud/                     # Yandex Cloud Functions
+│           ├── Handlers/
+│           │   ├── UpdateHandler.cs                # Базовый абстрактный класс для всех обработчиков обновлений
+│           │   ├── CommandUpdateHandler.cs         # Обработчик текстовых команд
+│           │   ├── CallbackQueryUpdateHandler.cs   # Обработчик нажатий на инлайн-кнопки
+│           │   └── TextMessageUpdateHandler.cs     # Обработчик текстовых сообщений без команд (для кнопки "Начать тест" и других текстовых взаимодействий)
+│           ├── Functions/
+│           │   └── BotFunction.cs
+│           ├── Properties/
+│           │   └── launchSettings.json
+│           ├── YandexServices/
+│           ├── UpdateRouter.cs                     # Маршрутизатор, который выбирает подходящий обработчик
+│           └── ServiceCollectionExtensions.cs                     # Расширение для настройки всех зависимостей
 │
 ├── config/                             # Конфигурационные файлы
-│   ├── test-config.json               # Основные настройки
-│   ├── questions.json                 # Вопросы и ответы
-│   └── personality-types.json         # Типы личности и описания
+│   ├── test-config.json                # Основные настройки
+│   ├── questions.json                  # Вопросы и ответы
+│   └── personality-types.json          # Типы личности и описания
 │
-├── docker/
+├── docker/                             # Будет реальизовано на 2 этапе (пока не преступал)
 │   ├── Dockerfile
 │   ├── docker-compose.yml
 │   └── nginx.conf
 │
-├── docs/                              # Документация
+├── docs/                               # Документация
 │   ├── INSTALLATION.md
 │   ├── API.md
-│   └── CONFIGURATION.md
+│   ├── CONFIGURATION.md
 │   └── Прочие документы.
 │
-└── tests/                             # Тесты
-    ├── UnitTests/
-    └── IntegrationTests/
+├── tests/                              # Тесты
+│   ├── UnitTests/
+│   └── IntegrationTests/
+│
+└── data/ 
+    ├── active/                         # Активные сессии
+    │   └── active-sessions.json
+    ├── completed/                      # Завершенные сессии
+    │   └── completed-sessions.json
+    └── exports/                        # Экспортированные отчеты
+        └── report_{date}.json
 ```
 
 ---
@@ -421,6 +456,6 @@ public class FileStorageService
 
 ---
 
-*Документация обновлена: 2025-12-06*  
-*Версия: 1.0.0*  
+*Документация обновлена: 2025-12-15*  
+*Версия: 1.0.1*  
 *Статус: В разработке*
