@@ -9,9 +9,15 @@ namespace ProfilingBot.Cloud.Functions
 {
     public class BotFunction : YcFunction<string, IActionResult>
     {
+        //Тестовый режим локално в консоли
+        private readonly bool _isTestMode;
+
         private readonly IServiceProvider _serviceProvider;
         public BotFunction()
         {
+            // Проверяем, тестовый ли режим
+            //_isTestMode = Environment.GetEnvironmentVariable("TEST_MODE") == "true";
+
             // Получаем конфигурацию из переменных окружения
             var botToken = Environment.GetEnvironmentVariable("BOT_TOKEN")
                 ?? throw new InvalidOperationException("BOT_TOKEN is not configured");
@@ -77,8 +83,20 @@ namespace ProfilingBot.Cloud.Functions
         {
             using var scope = _serviceProvider.CreateScope();
 
+            var chatId = update.Message?.Chat.Id ?? update.CallbackQuery?.Message?.Chat.Id;
+            var logger = scope.ServiceProvider.GetRequiredService<ILoggerService>();
+            logger.LogInfo($"Chat ID: {chatId}, Update ID: {update.Id}");
+
             try
             {
+                // В тестовом режиме просто логируем, не отправляем сообщения
+                if (_isTestMode)
+                {
+                    await ProcessUpdateInTestModeAsync(update, scope);
+                    return;
+                }
+
+                // Режим продакшн - обычная обработка
                 var router = scope.ServiceProvider.GetRequiredService<UpdateRouter>();
                 var handler = router.GetHandler(update);
 
@@ -90,15 +108,42 @@ namespace ProfilingBot.Cloud.Functions
                 }
                 else
                 {
-                    var logger = scope.ServiceProvider.GetRequiredService<ILoggerService>();
+                    //var logger = scope.ServiceProvider.GetRequiredService<ILoggerService>();
                     logger.LogWarning($"No handler found for update type: {update.Type}");
                 }
             }
             catch (Exception ex)
             {
-                var logger = scope.ServiceProvider.GetRequiredService<ILoggerService>();
+                //var logger = scope.ServiceProvider.GetRequiredService<ILoggerService>();
                 logger.LogError(ex, $"Error processing update {update.Id}");
             }
+        }
+
+        private async Task ProcessUpdateInTestModeAsync(Update update, IServiceScope scope)
+        {
+            var logger = scope.ServiceProvider.GetRequiredService<ILoggerService>();
+
+            // Логируем, что должно произойти, но не выполняем реальные действия
+            if (update.Message != null)
+            {
+                logger.LogInfo($"[TEST MODE] Received message from {update.Message.From?.Id}: '{update.Message.Text}'");
+
+                if (update.Message.Text == "/start")
+                {
+                    logger.LogInfo("[TEST MODE] Would send welcome message with 'Начать тест' button");
+                }
+                else if (update.Message.Text == "Начать тест")
+                {
+                    logger.LogInfo("[TEST MODE] Would create test session and show first question");
+                }
+            }
+            else if (update.CallbackQuery != null)
+            {
+                logger.LogInfo($"[TEST MODE] Received callback: {update.CallbackQuery.Data}");
+                // Можно добавить логику обработки callback для тестов
+            }
+
+            await Task.CompletedTask;
         }
 
         private async Task InitializeStorageAsync()
@@ -122,6 +167,44 @@ namespace ProfilingBot.Cloud.Functions
             catch
             {
                 Console.WriteLine($"[RequestId: {context.RequestId}] ERROR: {message}");
+            }
+        }
+
+
+        // Дополнительный метод для синхронного тестирования (только для тестов!!!!!!!!!)
+        public async Task<IActionResult> FunctionHandlerAsync(string request, Context context)
+        {
+            try
+            {
+                var update = JsonSerializer.Deserialize<Update>(request, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                if (update == null)
+                {
+                    return new BadRequestObjectResult(new
+                    {
+                        error = "Invalid update format",
+                        requestId = context.RequestId
+                    });
+                }
+
+                // СИНХРОННАЯ обработка - ждем завершения!
+                await ProcessUpdateAsync(update, context);
+
+                return new OkResult();
+            }
+            catch (JsonException jsonEx)
+            {
+                LogError($"JSON parsing error: {jsonEx.Message}", context);
+                return new BadRequestObjectResult(new { error = "Invalid JSON format" });
+            }
+            catch (Exception ex)
+            {
+                LogError($"Unhandled exception: {ex}", context);
+                return new StatusCodeResult(500);
             }
         }
     }

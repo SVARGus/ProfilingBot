@@ -98,9 +98,13 @@ namespace ProfilingBot.Cloud.Handlers
 
         private async Task AskToContinueOrRestartAsync(TestSession existingSession, long chatId, CancellationToken cancellationToken)
         {
+            var config = await _configurationService.GetBotConfigAsync();
+            var totalQuestions = config.TotalQuestions;
+            var progress = existingSession.CurrentQuestionIndex - 1;
+
             var messageText = $"📝 У вас уже есть начатый тест.\n\n" +
                              $"Вы начали его {existingSession.StartedAt:dd.MM.yyyy HH:mm}.\n" +
-                             $"Прогресс: {existingSession.CurrentQuestionIndex - 1}/{existingSession.Answers.Count} вопросов пройдено.\n\n" +
+                             $"Прогресс: {progress} из {totalQuestions} вопросов пройдено.\n\n" +
                              $"Что хотите сделать?";
 
             var buttons = new[]

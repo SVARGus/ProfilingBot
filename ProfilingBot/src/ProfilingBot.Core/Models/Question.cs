@@ -5,11 +5,11 @@ namespace ProfilingBot.Core.Models
     public class Question
     {
         [JsonConstructor]
-        public Question(int id, string text, List<AnswerOption> answer)
+        public Question(int id, string text, List<AnswerOption> answers)
         { 
             Id = id;
             Text = text;
-            Answers = answer;
+            Answers = answers;
         }
         public int Id { get; private set; }
         public string Text { get; private set; } = string.Empty;

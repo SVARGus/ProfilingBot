@@ -111,7 +111,7 @@ namespace ProfilingBot.Cloud.Handlers
                 },
                 new[]
                 {
-                    InlineKeyboardButton.WithUrl("📢 Канал проекта", "t.me/jsland")
+                    InlineKeyboardButton.WithUrl("📢 Канал проекта", "t.me/jsaland")
                 }
             };
 

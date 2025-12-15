@@ -331,7 +331,7 @@ namespace ProfilingBot.Core.Services
             return new BotConfig(
                 name: "Профайлинг TecForce",
                 welcomeMessage: GetDefaultWelcomeMessage(),
-                channelLink: "t.me/jsland",
+                channelLink: "t.me/jsaland",
                 introMessage: GetDefaultIntroMessage(),
                 completionMessage: GetDefaultCompletionMessage(),
                 totalQuestions: 8,

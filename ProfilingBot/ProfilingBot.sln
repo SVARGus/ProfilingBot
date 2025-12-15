@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntegrationTests", "..\test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProfilingBot.Api", "src\ProfilingBot.Api\ProfilingBot.Api.csproj", "{C8820A1F-5FD0-4195-A75A-8A693595E510}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProfilingBot.ConsoleTest", "..\tests\ProfilingBot.ConsoleTest\ProfilingBot.ConsoleTest.csproj", "{15A3A339-BFD4-4671-8D59-E49AFE450DF9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{C8820A1F-5FD0-4195-A75A-8A693595E510}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C8820A1F-5FD0-4195-A75A-8A693595E510}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C8820A1F-5FD0-4195-A75A-8A693595E510}.Release|Any CPU.Build.0 = Release|Any CPU
+		{15A3A339-BFD4-4671-8D59-E49AFE450DF9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{15A3A339-BFD4-4671-8D59-E49AFE450DF9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{15A3A339-BFD4-4671-8D59-E49AFE450DF9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{15A3A339-BFD4-4671-8D59-E49AFE450DF9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

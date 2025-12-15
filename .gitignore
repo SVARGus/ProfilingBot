@@ -365,3 +365,4 @@ FodyWeavers.xsd
 /.env.development.local
 /config/appsettings-bot.json
 /ProfilingBot/src/ProfilingBot.Cloud/Properties/launchSettings.json
+/tests/ProfilingBot.ConsoleTest
