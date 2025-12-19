@@ -135,7 +135,8 @@ profiling-bot/
 │           │   └── launchSettings.json
 │           ├── YandexServices/
 │           ├── UpdateRouter.cs                     # Маршрутизатор, который выбирает подходящий обработчик
-│           └── ServiceCollectionExtensions.cs      # Расширение для настройки всех зависимостей
+│           ├── ServiceCollectionExtensions.cs      # Расширение для настройки всех зависимостей
+│           └── function.yaml                       # Файл конфигурации функции
 │
 ├── config/                             # Конфигурационные файлы
 │   ├── test-config.json                # Основные настройки
@@ -456,6 +457,6 @@ public class FileStorageService
 
 ---
 
-*Документация обновлена: 2025-12-15*  
-*Версия: 1.0.1*  
+*Документация обновлена: 2025-12-18*  
+*Версия: 1.0.2*  
 *Статус: В разработке*

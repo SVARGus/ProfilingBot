@@ -1,0 +1,26 @@
+name: profiling-bot-test
+runtime: dotnet8
+entrypoint: ProfilingBot.Cloud.Functions.Handler::FunctionHandler
+memory: 256MB
+execution_timeout: 10s
+service_account_id: <ЗАМЕНИТЕ_НА_ВАШ_SERVICE_ACCOUNT_ID>
+
+# Переменные окружения
+environment:
+  BOT_TOKEN: ${BOT_TOKEN}
+  CONFIG_PATH: /function/config
+  DATA_PATH: /function/data
+  LOGS_PATH: /function/logs
+  DOTNET_ENVIRONMENT: Production
+
+# HTTP-триггер для вебхука Telegram
+triggers:
+  telegram-webhook:
+    type: http
+    public: true  # Будет публичный URL
+    path: /webhook  # Эндпоинт для Telegram
+    methods: [ "POST" ]
+
+# Политики доступа (минимальные)
+policies:
+  - name: logging-writer  # Для записи логов

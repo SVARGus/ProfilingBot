@@ -7,12 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="YandexServices\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Telegram.Bot" Version="22.7.6" />  
-    <PackageReference Include="Yandex.Cloud.Functions.AspNetCoreServer" Version="0.0.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.3.0" />
+    <PackageReference Include="Telegram.Bot" Version="22.7.6" />
+	  <!-- Добавлено: для работы с JSON и DI -->
+	  <PackageReference Include="System.Text.Json" Version="8.0.5" />
+	  <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
   </ItemGroup>
 
   <ItemGroup>
