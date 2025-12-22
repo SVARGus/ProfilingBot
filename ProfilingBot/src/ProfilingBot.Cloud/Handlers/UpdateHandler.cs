@@ -54,7 +54,9 @@ namespace ProfilingBot.Cloud.Handlers
             // ==============================================================================
 
             // ========== ДОБАВЛЕНО: Новый формат сообщения ==========
-            var messageText = $"*Вопрос {questionNumber} из {totalQuestions}*\n\n" +
+            var progressBar = GetProgressBar(questionNumber, totalQuestions);
+
+            var messageText = $"*Вопрос {questionNumber} из {totalQuestions}* {progressBar}\n\n" +
                               $"\"{question.Text}\"\n\n" +
                               string.Join("\n", orderedAnswers.Select((a, i) => $"*Вариант {i + 1}:* {a.Text}"));
             // ======================================================
@@ -62,12 +64,15 @@ namespace ProfilingBot.Cloud.Handlers
             // Создаем инлайн-кнопки для каждого варианта ответа
             var buttons = new List<InlineKeyboardButton[]>();
 
+            // Массив эмодзи для вариантов
+            var optionEmojis = new[] { "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣" };
+
             for (int i = 0; i < orderedAnswers.Count; i++)
             {
+                // Только sessionId и displayIndex (1-5)
                 var button = InlineKeyboardButton.WithCallbackData(
-                    text: $"🔹 Вариант {i + 1}",
-                    // Сохраняем: sessionId, оригинальный questionId, оригинальный answerId, номер варианта в сессии
-                    callbackData: $"answer_{session.Id}_{question.Id}_{orderedAnswers[i].Id}_{i + 1}");
+                    text: $"{optionEmojis[i]} Вариант {i + 1}", // "1️⃣ Вариант 1"
+                    callbackData: $"answer_{session.Id}_{i + 1}"); // Упрощено!
                 buttons.Add(new[] { button });
             }
 
@@ -104,22 +109,22 @@ namespace ProfilingBot.Cloud.Handlers
                 var completionMessage = await _configurationService.GetCompletionMessageAsync();
                 var resultText = $@"{completionMessage}
 
-                    🎯 *{personalityType.FullName}*
+    🎯 *{personalityType.FullName}*
 
-                    {personalityType.Description}
+{personalityType.Description}
 
-                    ✨ *Сфера реализации:* {personalityType.Sphere}
+    ✨ *Сфера реализации:* {personalityType.Sphere}
 
-                    💪 *Сильные стороны:* {personalityType.Strengths}
+    💪 *Сильные стороны:* {personalityType.Strengths}
 
-                    📋 *Рекомендации:* {personalityType.Recommendations}
+    📋 *Рекомендации:* {personalityType.Recommendations}
 
-                    *Баллы по типам:*
-                    • Социальный: {result.Scores[1]}
-                    • Творческий: {result.Scores[2]}
-                    • Технический: {result.Scores[3]}
-                    • Аналитический: {result.Scores[4]}
-                    • Натуралистический: {result.Scores[5]}";
+    *Баллы по типам:*
+• Социальный: {result.Scores[1]}
+• Творческий: {result.Scores[2]}
+• Технический: {result.Scores[3]}
+• Аналитический: {result.Scores[4]}
+• Натуралистический: {result.Scores[5]}";
 
                 // Кнопки для действий с результатом
                 var buttons = new[]
@@ -166,6 +171,18 @@ namespace ProfilingBot.Cloud.Handlers
                 return user.FirstName;
 
             return $"User_{user.Id}";
+        }
+
+        private string GetProgressBar(int current, int total)
+        {
+            var filled = "█";
+            var empty = "░";
+            var width = 10;
+
+            var filledCount = (int)Math.Round((double)current / total * width);
+            var emptyCount = width - filledCount;
+
+            return $"[{new string(filled[0], filledCount)}{new string(empty[0], emptyCount)}]";
         }
     }
 }

@@ -7,13 +7,16 @@ namespace ProfilingBot.Cloud.Handlers
 {
     public class CallbackQueryUpdateHandler : UpdateHandler
     {
+        private readonly IStorageService _storageService;
         public CallbackQueryUpdateHandler(
             TelegramBotClient botClient,
             ITestService testService,
             IConfigurationService configurationService,
-            ILoggerService logger)
+            ILoggerService logger,
+            IStorageService storageService)
             : base(botClient, testService, configurationService, logger)
         {
+            _storageService = storageService;
         }
 
         public override bool CanHandle(Update update)
@@ -65,19 +68,58 @@ namespace ProfilingBot.Cloud.Handlers
             CancellationToken cancellationToken)
         {
             var parts = callbackData.Split('_');
-            if (parts.Length == 5 &&
-                Guid.TryParse(parts[1], out var sessionId) &&
-                int.TryParse(parts[2], out var questionId) &&
-                int.TryParse(parts[3], out var answerId) &&
-                int.TryParse(parts[4], out var displayIndex))
-            {
-                // Логируем для отладки
-                _loggerService.LogInfo($"User selected: session={sessionId}, question={questionId}, answer={answerId}, displayIndex={displayIndex}");
 
-                // Сохраняем ответ (оригинальный questionId → оригинальный answerId)
-                var session = await _testService.AnswerQuestionAsync(sessionId, questionId, answerId);
+            // Новый формат: answer_{sessionId}_{displayIndex}
+            if (parts.Length == 3 &&
+                Guid.TryParse(parts[1], out var sessionId) &&
+                int.TryParse(parts[2], out var displayIndex))
+            {
+                // Получаем сессию
+                var session = await _storageService.GetActiveSessionAsync(sessionId);
 
                 if (session == null)
+                {
+                    _loggerService.LogError($"Session {sessionId} not found");
+                    return;
+                }
+
+                // Получаем текущий вопрос
+                var currentQuestion = await _testService.GetCurrentQuestionAsync(sessionId);
+                if (currentQuestion == null)
+                {
+                    _loggerService.LogError($"Current question not found for session {sessionId}");
+                    return;
+                }
+
+                // Проверяем валидность displayIndex (1-5)
+                if (displayIndex < 1 || displayIndex > 5)
+                {
+                    _loggerService.LogError($"Invalid displayIndex: {displayIndex}");
+                    return;
+                }
+
+                // Получаем оригинальный AnswerId из порядка в сессии
+                if (!session.AnswerOrder.TryGetValue(currentQuestion.Id, out var answerOrder))
+                {
+                    _loggerService.LogError($"Answer order not found for question {currentQuestion.Id}");
+                    return;
+                }
+
+                if (displayIndex > answerOrder.Count)
+                {
+                    _loggerService.LogError($"DisplayIndex {displayIndex} out of range for question {currentQuestion.Id}");
+                    return;
+                }
+
+                var originalAnswerId = answerOrder[displayIndex - 1]; // displayIndex is 1-based
+
+                _loggerService.LogInfo($"User selected: session={sessionId}, question={currentQuestion.Id}, " +
+                                      $"displayIndex={displayIndex}, answerId={originalAnswerId}");
+
+                // Сохраняем ответ через TestService
+                var updatedSession = await _testService.AnswerQuestionAsync(sessionId, currentQuestion.Id, originalAnswerId);
+
+                if (updatedSession == null)
                 {
                     await _botClient.SendMessage(
                         chatId: chatId,
@@ -86,18 +128,18 @@ namespace ProfilingBot.Cloud.Handlers
                     return;
                 }
 
-                if (session.IsCompleted)
+                if (updatedSession.IsCompleted)
                 {
                     // Тест завершен - показываем результат
-                    await ShowTestResultAsync(session, chatId, cancellationToken);
+                    await ShowTestResultAsync(updatedSession, chatId, cancellationToken);
                 }
                 else
                 {
                     // Показываем следующий вопрос
-                    var question = await _testService.GetCurrentQuestionAsync(session.Id);
-                    if (question != null)
+                    var nextQuestion = await _testService.GetCurrentQuestionAsync(updatedSession.Id);
+                    if (nextQuestion != null)
                     {
-                        await SendQuestionAsync(session, question, chatId, cancellationToken);
+                        await SendQuestionAsync(updatedSession, nextQuestion, chatId, cancellationToken);
                     }
                 }
             }

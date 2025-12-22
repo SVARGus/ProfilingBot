@@ -119,22 +119,29 @@ namespace ProfilingBot.Core.Services
             if (nextQuestionIndex <= totalQuestions)
             {
                 session.CurrentQuestionIndex = nextQuestionIndex;
+                // Сохраняем обновлённую сессию
+                await _storageService.SaveActiveSessionAsync(session);
+
+                _logger.LogDebug($"User {session.UserId} answered question {questionId} with answer {answerId}");
+                _logger.LogDebug($"Progress: {session.Answers.Count}/{totalQuestions} questions answered");
+
+                return session;
             }
             else
             {
-                // Все вопросы отвечены - завершаем тест
-                session = await CompleteTestAsync(sessionId);
+                // Все вопросы отвечены - сохраняем сессию С 8-м ответом
+                await _storageService.SaveActiveSessionAsync(session);
+
+                _logger.LogInfo($"All questions answered for session {sessionId}");
+                _logger.LogInfo($"Total answers before completion: {session.Answers.Count}");
+
+                // Теперь завершаем тест
+                var completedSession = await CompleteTestAsync(sessionId);
+
+                _logger.LogInfo($"Test completed. Total answers: {completedSession.Answers.Count}");
+
+                return completedSession;
             }
-
-            // Сохраняем изменения
-            await _storageService.SaveActiveSessionAsync(session);
-
-            _logger.LogDebug($"User {session.UserId} answered question {questionId} with answer {answerId}");
-
-            // Логируем прогресс
-            _logger.LogDebug($"Progress: {session.Answers.Count}/{totalQuestions} questions answered");
-
-            return session;
         }
 
         public async Task<TestSession> CompleteTestAsync(Guid sessionId)

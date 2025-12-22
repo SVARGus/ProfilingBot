@@ -57,24 +57,24 @@ namespace ProfilingBot.Core.Services
 
             var message = $@"{completionMessage}
 
-                🎯 *{personalityType.FullName}*
+    🎯 *{personalityType.FullName}*
 
-                {personalityType.Description}
+    {personalityType.Description}
 
-                ✨ {personalityType.Sphere}
+    ✨ {personalityType.Sphere}
 
-                💪 {personalityType.Strengths}
+    💪 {personalityType.Strengths}
 
-                🖼 {personalityType.Recommendations}
+    🖼 {personalityType.Recommendations}
 
-                📊 *Ваши баллы по типам:*
-                Социальный: {result.Scores[1]}
-                Творческий: {result.Scores[2]}
-                Технический: {result.Scores[3]}
-                Аналитический: {result.Scores[4]}
-                Натуралистический: {result.Scores[5]}
+    📊 *Ваши баллы по типам:*
+Социальный: {result.Scores[1]}
+Творческий: {result.Scores[2]}
+Технический: {result.Scores[3]}
+Аналитический: {result.Scores[4]}
+Натуралистический: {result.Scores[5]}
 
-                Хотите получить красивую карточку с результатом?";
+Хотите получить красивую карточку с результатом?";
 
             return message;
         }
