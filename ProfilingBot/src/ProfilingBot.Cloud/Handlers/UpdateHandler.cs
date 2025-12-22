@@ -39,15 +39,35 @@ namespace ProfilingBot.Cloud.Handlers
             var questionNumber = session.CurrentQuestionIndex;
             var totalQuestions = config.TotalQuestions;
 
-            var messageText = $"*Вопрос {questionNumber} из {totalQuestions}*\n\n{question.Text}";
+            // ========== ДОБАВЛЕНО: Получение порядка вариантов для этого вопроса ==========
+            if (!session.AnswerOrder.TryGetValue(question.Id, out var answerOrder))
+            {
+                // На всякий случай, если порядок не найден, используем оригинальный
+                answerOrder = question.Answers.Select(a => a.Id).ToList();
+                _loggerService.LogWarning($"Answer order not found for question {question.Id}, using default");
+            }
+
+            // Получаем варианты в правильном порядке для этой сессии
+            var orderedAnswers = answerOrder
+                .Select(answerId => question.Answers.First(a => a.Id == answerId))
+                .ToList();
+            // ==============================================================================
+
+            // ========== ДОБАВЛЕНО: Новый формат сообщения ==========
+            var messageText = $"*Вопрос {questionNumber} из {totalQuestions}*\n\n" +
+                              $"\"{question.Text}\"\n\n" +
+                              string.Join("\n", orderedAnswers.Select((a, i) => $"*Вариант {i + 1}:* {a.Text}"));
+            // ======================================================
 
             // Создаем инлайн-кнопки для каждого варианта ответа
             var buttons = new List<InlineKeyboardButton[]>();
-            foreach (var answer in question.Answers)
+
+            for (int i = 0; i < orderedAnswers.Count; i++)
             {
                 var button = InlineKeyboardButton.WithCallbackData(
-                    text: $"🔹 {answer.Text}",
-                    callbackData: $"answer_{session.Id}_{question.Id}_{answer.Id}");
+                    text: $"🔹 Вариант {i + 1}",
+                    // Сохраняем: sessionId, оригинальный questionId, оригинальный answerId, номер варианта в сессии
+                    callbackData: $"answer_{session.Id}_{question.Id}_{orderedAnswers[i].Id}_{i + 1}");
                 buttons.Add(new[] { button });
             }
 

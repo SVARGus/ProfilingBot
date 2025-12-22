@@ -89,7 +89,9 @@ profiling-bot/
 ├── scripts/                            # Скрипты (пока не реализованы)
 │   ├── create-folders.ps1              # Создание папок через PowerShal
 │   ├── create-folders.sh               # Создание папок на Linux (bash)
-│   └── prepare-environment.ps1         # 
+│   ├── prepare-environment.ps1         # 
+│   ├── start-dev.ps1                   # Срипт при тестировании: запуск сервера и туннеля
+│   └── setup-webhook.ps1               # Настройка вебхука 
 │
 ├── .env.development.local              # ДЛЯ РАЗРАБОТКИ (в .gitignore!)
 ├── .env.production                     # ДЛЯ ПРОДАКШЕН (шаблон)

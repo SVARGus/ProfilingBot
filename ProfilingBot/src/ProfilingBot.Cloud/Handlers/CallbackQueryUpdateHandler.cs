@@ -65,12 +65,16 @@ namespace ProfilingBot.Cloud.Handlers
             CancellationToken cancellationToken)
         {
             var parts = callbackData.Split('_');
-            if (parts.Length == 4 &&
+            if (parts.Length == 5 &&
                 Guid.TryParse(parts[1], out var sessionId) &&
                 int.TryParse(parts[2], out var questionId) &&
-                int.TryParse(parts[3], out var answerId))
+                int.TryParse(parts[3], out var answerId) &&
+                int.TryParse(parts[4], out var displayIndex))
             {
-                // Сохраняем ответ
+                // Логируем для отладки
+                _loggerService.LogInfo($"User selected: session={sessionId}, question={questionId}, answer={answerId}, displayIndex={displayIndex}");
+
+                // Сохраняем ответ (оригинальный questionId → оригинальный answerId)
                 var session = await _testService.AnswerQuestionAsync(sessionId, questionId, answerId);
 
                 if (session == null)
@@ -96,6 +100,10 @@ namespace ProfilingBot.Cloud.Handlers
                         await SendQuestionAsync(session, question, chatId, cancellationToken);
                     }
                 }
+            }
+            else
+            {
+                _loggerService.LogError($"Invalid callback data format: {callbackData}");
             }
         }
 

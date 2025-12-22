@@ -1,21 +1,23 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>cc7ca4ec-c2ad-4ac9-b260-e17787261e0a</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ClosedXML" Version="0.105.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Telegram.Bot" Version="22.7.5" />
+    <Compile Include="D:\My_Project_IT\Телеграмм-бот для TecForce\profiling-bot\ProfilingBot\src\ProfilingBot.Api\Program.cs" Link="Program.cs" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="10.0.1" />
+    <PackageReference Include="Telegram.Bot" Version="22.7.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProfilingBot.Cloud\ProfilingBot.Cloud.csproj" />
     <ProjectReference Include="..\ProfilingBot.Core\ProfilingBot.Core.csproj" />
   </ItemGroup>
 

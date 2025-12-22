@@ -40,6 +40,8 @@ namespace ProfilingBot.Core.Services
                     return existingSession;
                 }
 
+                var allQuestions = await _configService.GetQuestionsAsync();
+
                 var session = new TestSession
                 {
                     UserId = userId,
@@ -48,9 +50,25 @@ namespace ProfilingBot.Core.Services
                     CurrentQuestionIndex = 1
                 };
 
+                // ========== ДОБАВЛЕНО: Рандомизация ==========
+                var rnd = new Random(Guid.NewGuid().GetHashCode());
+
+                // 1. Перемешиваем вопросы
+                var shuffledQuestions = allQuestions.OrderBy(q => rnd.Next()).ToList();
+                session.QuestionOrder = shuffledQuestions.Select(q => q.Id).ToList();
+
+                // 2. Для каждого вопроса перемешиваем варианты ответов
+                foreach (var question in allQuestions)
+                {
+                    var shuffledAnswers = question.Answers.OrderBy(a => rnd.Next()).ToList();
+                    session.AnswerOrder[question.Id] = shuffledAnswers.Select(a => a.Id).ToList();
+                }
+                // =============================================
+
                 await _storageService.SaveActiveSessionAsync(session);
 
                 _logger.LogInfo($"Session {session.Id} created for user {userId}");
+                _logger.LogDebug($"Question order: [{string.Join(", ", session.QuestionOrder)}]");
 
                 return session;
             }
@@ -95,12 +113,12 @@ namespace ProfilingBot.Core.Services
             session.Answers[questionId] = answerId;
 
             // Обновляем текущий вопрос
-            var nextQuestionId = questionId + 1;
+            var nextQuestionIndex = session.CurrentQuestionIndex + 1;
             var totalQuestions = (await _configService.GetBotConfigAsync()).TotalQuestions;
 
-            if (nextQuestionId <= totalQuestions)
+            if (nextQuestionIndex <= totalQuestions)
             {
-                session.CurrentQuestionIndex = nextQuestionId;
+                session.CurrentQuestionIndex = nextQuestionIndex;
             }
             else
             {
@@ -112,6 +130,9 @@ namespace ProfilingBot.Core.Services
             await _storageService.SaveActiveSessionAsync(session);
 
             _logger.LogDebug($"User {session.UserId} answered question {questionId} with answer {answerId}");
+
+            // Логируем прогресс
+            _logger.LogDebug($"Progress: {session.Answers.Count}/{totalQuestions} questions answered");
 
             return session;
         }
@@ -161,7 +182,14 @@ namespace ProfilingBot.Core.Services
             }
 
             var questions = await _configService.GetQuestionsAsync();
-            return questions.FirstOrDefault(q => q.Id == session.CurrentQuestionIndex);
+
+            if (session.CurrentQuestionIndex >= 1 && session.CurrentQuestionIndex <= session.QuestionOrder.Count)
+            {
+                var originalQuestionId = session.QuestionOrder[session.CurrentQuestionIndex - 1];
+                return questions.FirstOrDefault(q => q.Id == originalQuestionId);
+            }
+
+            return null;
         }
 
         public async Task<List<Question>> GetAllQuestionsAsync()
