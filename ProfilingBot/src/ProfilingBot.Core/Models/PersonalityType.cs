@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Security.Cryptography.X509Certificates;
+using System.Text.Json.Serialization;
 
 namespace ProfilingBot.Core.Models
 {
@@ -8,6 +9,8 @@ namespace ProfilingBot.Core.Models
         public PersonalityType(
             int id,
             string name,
+            string shortName,         // краткое название для карточки
+            string slogan,            // слоган для карточки
             string fullName,
             string description,
             string strengths,
@@ -18,6 +21,8 @@ namespace ProfilingBot.Core.Models
         {
             Id = id;
             Name = name;
+            ShortName = shortName;
+            Slogan = slogan;
             FullName = fullName;
             Description = description;
             Strengths = strengths;
@@ -29,6 +34,8 @@ namespace ProfilingBot.Core.Models
 
         public int Id { get; private set; }
         public string Name { get; private set; } = string.Empty; // Короткое имя (например, "Аналитик")
+        public string ShortName { get; private set; } = string.Empty; // Краткое название типа для карточки(заглавными буквами в квадратных скобках), например [ АНАЛИТИК ]
+        public string Slogan { get; private set; } = string.Empty; // Короткий слоган, описывающий тип личности
         public string FullName { get; private set; } = string.Empty; // "Аналитический тип — Человек-логика"
         public string Description { get; private set; } = string.Empty; // Общее описание типа
         public string Strengths { get; private set; } = string.Empty; // "Ваша сила — структурность мышления и внимание к деталям."

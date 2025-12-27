@@ -44,7 +44,7 @@
 - [x] Базовая логика расчета результатов
 
 #### Неделя 3: Результаты и интерфейс
-- [ ] Генерация текстовых результатов
+- [x] Генерация текстовых результатов
 - [ ] Карточка с результатами (брендирование)
 - [ ] Кнопки "Переслать себе" и "Поделиться в сторис"
 - [ ] Экспорт результатов в Excel для владельца
@@ -99,24 +99,31 @@ profiling-bot/
 ├── ProfilingBot/
 │   └── src/
 │       ├── ProfilingBot.Core/                      # Бизнес-логика (реализована, по необходимости правим)
+│       │   ├── Assets/                             # Ресурсы
+│       │   │   └── Fonts/                          # Шрифты как embedded ресурс
+│       │   │       ├── Inter-Regular.ttf           
+│       │   │       └── Inter-SemiBold.ttf           
 │       │   ├── Services/
 │       │   │   ├── FileStorageService.cs           # Сервис сохранения результатов
 │       │   │   ├── FileConfigurationService.cs     # Сервис загрузки конфигураций теста
 │       │   │   ├── TestService.cs                  # Сервис тестирования
 │       │   │   ├── FileLoggerService.cs            # Простой логгер
-│       │   │   └── ResultGenerator.cs              # Генератор результатов
+│       │   │   ├── ResultGenerator.cs              # Генератор результатов
+|       |   |   └── StoryCardGenerator.cs           # Сервис генерации карточки
 │       │   ├── Models/
 │       │   │   ├── AnswerOption.cs
 │       │   │   ├── Question.cs
 │       │   │   ├── TestSession.cs
 │       │   │   ├── TestResult.cs
-│       │   │   └── PersonalityType.cs
+│       │   │   ├── PersonalityType.cs
+│       │   │   └── CardGenerationConfig.cs 
 │       │   └── Interfaces/
 │       │       ├── ITestService.cs
 │       │       ├── IResultGeneratorService.cs
 │       │       ├── ILoggerService.cs
 │       │       ├── IConfigurationService.cs
-│       │       └── IStorageService.cs
+│       │       ├── IStorageService.cs
+│       │       └── IStoryCardGenerator.cs
 │       │
 │       ├── ProfilingBot.Api/               # ASP.NET Core Web API (не реализована, пока наброски)
 │       │   ├── Controllers/
@@ -143,7 +150,16 @@ profiling-bot/
 ├── config/                             # Конфигурационные файлы
 │   ├── test-config.json                # Основные настройки
 │   ├── questions.json                  # Вопросы и ответы
-│   └── personality-types.json          # Типы личности и описания
+│   ├── personality-types.json          # Типы личности и описания
+│   └── card-generation.json            # Конфигурация для кастомизации результирующих карточек
+├── Assets/                             # Ресурсы
+│   ├── Cards/                          # Фоновые картинки
+│   │   ├── 1.png                       # Социальный (ID=1)
+│   │   ├── 2.png                       # Творческий (ID=2)
+│   │   ├── 3.png                       # Аналитический (ID=3)
+│   │   ├── 4.png                       # Технический (ID=4)
+│   │   └── 5.png                       # Натуралистический (ID=5)
+│   └── Fonts/                          # Шрифты (если нужны нестандартные)
 │
 ├── docker/                             # Будет реальизовано на 2 этапе (пока не преступал)
 │   ├── Dockerfile
@@ -459,6 +475,6 @@ public class FileStorageService
 
 ---
 
-*Документация обновлена: 2025-12-18*  
-*Версия: 1.0.2*  
+*Документация обновлена: 2025-12-22*  
+*Версия: 1.0.3*  
 *Статус: В разработке*

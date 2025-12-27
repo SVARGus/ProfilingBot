@@ -47,6 +47,9 @@ namespace ProfilingBot.Cloud
                 return new FileStorageService(dataPath, logger);
             });
 
+            // Генератор карточек (SINGLETON для кэширования)
+            services.AddSingleton<IStoryCardGenerator, StoryCardGenerator>();
+
             // Сервисы бизнес-логики
             services.AddScoped<ITestService, TestService>();
             services.AddScoped<IResultGeneratorService, ResultGeneratorService>();

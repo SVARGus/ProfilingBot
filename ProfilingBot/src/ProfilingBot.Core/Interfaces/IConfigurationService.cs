@@ -23,5 +23,26 @@ namespace ProfilingBot.Core.Interfaces
 
         // Перезагрузка конфигурации (если файлы изменились)
         Task ReloadConfigurationAsync();
+
+        /// <summary>
+        /// Получить конфигурацию генерации карточек
+        /// </summary>
+        Task<CardGenerationConfig> GetCardGenerationConfigAsync();
+
+        /// <summary>
+        /// Получить базовый путь к корневой директории приложения
+        /// (для определения абсолютных путей к assets)
+        /// </summary>
+        string GetBasePath();
+
+        /// <summary>
+        /// Получить абсолютный путь к директории с карточками
+        /// </summary>
+        Task<string> GetCardsDirectoryPathAsync();
+
+        /// <summary>
+        /// Получить абсолютный путь к файлу/директории относительно базовой директории
+        /// </summary>
+        string GetAbsolutePath(string relativePath);
     }
 }

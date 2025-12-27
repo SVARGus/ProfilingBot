@@ -160,11 +160,14 @@ namespace ProfilingBot.Core.Services
             // Помечаем как завершенную
             session.CompletedAt = DateTime.UtcNow;
 
+            // Рассчитываем результат перед сохранением
+            var result = await CalculateResultAsync(session);
+
             // Переносим в завершенные
             await _storageService.SaveCompletedSessionAsync(session);
             await _storageService.RemoveActiveSessionAsync(sessionId);
 
-            _logger.LogInfo($"Test completed for user {session.UserId}, session {session.Id}");
+            _logger.LogInfo($"Test completed for user {session.UserId}, session {session.Id}, type: {session.ResultNamePersonalityType}");
 
             return session;
         }

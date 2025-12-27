@@ -13,6 +13,7 @@ namespace ProfilingBot.Core.Services
         private BotConfig? _cachedBotConfig;
         private List<Question>? _cachedQuestions;
         private List<PersonalityType>? _cachedPersonalityTypes;
+        private CardGenerationConfig? _cachedCardGenerationConfig;
 
         private readonly JsonSerializerOptions _jsonOptions = new()
         {
@@ -300,6 +301,89 @@ namespace ProfilingBot.Core.Services
             await GetBotConfigAsync();
             await GetQuestionsAsync();
             await GetPersonalityTypesAsync();
+        }
+
+        public async Task<CardGenerationConfig> GetCardGenerationConfigAsync()
+        {
+            if (_cachedCardGenerationConfig != null)
+            {
+                return _cachedCardGenerationConfig;
+            }
+
+            var configPath = Path.Combine(_configPath, "card-generation.json");
+
+            if (!File.Exists(configPath))
+            {
+                _logger.LogWarning($"Card generation config not found: {configPath}. Using defaults.");
+                _cachedCardGenerationConfig = new CardGenerationConfig();
+                return _cachedCardGenerationConfig;
+            }
+
+            try
+            {
+                var json = await File.ReadAllTextAsync(configPath);
+                var config = JsonSerializer.Deserialize<CardGenerationConfig>(json, _jsonOptions);
+
+                _cachedCardGenerationConfig = config ?? new CardGenerationConfig();
+                _logger.LogDebug($"Loaded card generation config from: {configPath}");
+
+                return _cachedCardGenerationConfig;
+            }
+            catch (JsonException jsonEx)
+            {
+                _logger.LogError(jsonEx, $"Invalid JSON in card generation config: {configPath}");
+                _cachedCardGenerationConfig = new CardGenerationConfig();
+                return _cachedCardGenerationConfig;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to load card generation config from {configPath}");
+                _cachedCardGenerationConfig = new CardGenerationConfig();
+                return _cachedCardGenerationConfig;
+            }
+        }
+
+        public string GetBasePath()
+        {
+            // Для Cloud Functions путь будет /function/
+            // Для ASP.NET Core - AppContext.BaseDirectory
+            // Для разработки - учитываем launchSettings
+            var basePath = AppContext.BaseDirectory;
+
+            // Проверяем, не находимся ли мы в bin/Debug/net8.0/
+            if (basePath.Contains("bin") && basePath.Contains("Debug"))
+            {
+                // Поднимаемся на 3 уровня вверх для разработки
+                return Path.GetFullPath(Path.Combine(basePath, "../../.."));
+            }
+
+            return basePath;
+        }
+
+        public async Task<string> GetCardsDirectoryPathAsync()
+        {
+            var config = await GetCardGenerationConfigAsync();
+            var basePath = GetBasePath();
+
+            var cardsPath = Path.Combine(basePath, config.CardsDirectory);
+
+            // Нормализуем путь (убираем ../ и т.д.)
+            cardsPath = Path.GetFullPath(cardsPath);
+
+            _logger.LogDebug($"Cards directory path: {cardsPath}");
+            return cardsPath;
+        }
+
+        public string GetAbsolutePath(string relativePath)
+        {
+            var basePath = GetBasePath();
+            var absolutePath = Path.Combine(basePath, relativePath);
+
+            // Нормализуем путь (убираем ../ и т.д.)
+            absolutePath = Path.GetFullPath(absolutePath);
+
+            _logger.LogDebug($"Absolute path for '{relativePath}': {absolutePath}");
+            return absolutePath;
         }
 
         private void ValidateQuestions(List<Question> questions)
