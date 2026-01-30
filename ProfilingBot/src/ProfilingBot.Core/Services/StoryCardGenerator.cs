@@ -1,7 +1,8 @@
-﻿using System.Reflection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using ProfilingBot.Core.Interfaces;
 using ProfilingBot.Core.Models;
 using SkiaSharp;
+using System.Reflection;
 
 namespace ProfilingBot.Core.Services
 {
@@ -10,24 +11,54 @@ namespace ProfilingBot.Core.Services
     /// </summary>
     public class StoryCardGenerator : IStoryCardGenerator
     {
-        private readonly CardGenerationConfig _cardGenerationConfig;
-        private readonly IConfigurationService _configurationService;
+        private readonly IServiceProvider _serviceProvider;
         private readonly ILoggerService _loggerService;
         private readonly Assembly _assembly;
+
+        // Ленивые зависимости
+        private CardGenerationConfig? _cardGenerationConfig;
+        private IConfigurationService? _configurationService;
 
         // Кэширование ресурсов
         private SKTypeface? _cachedRegularFont;
         private SKTypeface? _cachedSemiBoldFont;
         private readonly Dictionary<int, SKImage> _cachedBackgrounds = new();
 
+        // Lock для потокобезопасности
+        private readonly object _fontLock = new();
+        private readonly object _backgroundLock = new();
+
         public StoryCardGenerator(
             ILoggerService logger,
-            IConfigurationService configurationService)
+            IServiceProvider serviceProvider)
         {
-            _cardGenerationConfig = new CardGenerationConfig();
             _loggerService = logger;
             _assembly = Assembly.GetExecutingAssembly();
-            _configurationService = configurationService;
+            _serviceProvider = serviceProvider;
+        }
+
+        private IConfigurationService ConfigService
+        {
+            get
+            {
+                if (_configurationService == null)
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    _configurationService = scope.ServiceProvider.GetRequiredService<IConfigurationService>();
+                    _loggerService.LogDebug("IConfigurationService initialized lazily");
+                }
+                return _configurationService;
+            }
+        }
+
+        private async Task<CardGenerationConfig> GetConfigAsync()
+        {
+            if (_cardGenerationConfig == null)
+            {
+                _cardGenerationConfig = await ConfigService.GetCardGenerationConfigAsync();
+                _loggerService.LogDebug("CardGenerationConfig loaded and cached");
+            }
+            return _cardGenerationConfig;
         }
 
         public async Task<byte[]> GenerateCardAsync(
@@ -37,15 +68,15 @@ namespace ProfilingBot.Core.Services
         {
             try
             {
-                // Загружаем актуальную конфигурацию
-                var config = await _configurationService.GetCardGenerationConfigAsync();
-
                 _loggerService.LogDebug($"Generating card for user {result.UserName}, type {personalityType.ShortName}");
 
-                // 1. Загружаем фоновое изображение
+                // 1. Получаем конфигурацию
+                var config = await GetConfigAsync();
+
+                // 2. Загружаем фоновое изображение
                 using var background = await LoadBackgroundAsync(personalityType.Id, config, cancellationToken);
 
-                // 2. Создаем поверхность для рисования
+                // 3. Создаем поверхность для рисования
                 using var surface = SKSurface.Create(new SKImageInfo(
                     config.Width,
                     config.Height,
@@ -54,17 +85,17 @@ namespace ProfilingBot.Core.Services
 
                 using var canvas = surface.Canvas;
 
-                // 3. Рисуем фон
+                // 4. Рисуем фон
                 canvas.DrawImage(background, 0, 0);
 
-                // 4. Получаем шрифты
+                // 5. Получаем шрифты
                 var regularFont = await GetRegularFontAsync(cancellationToken);
                 var semiBoldFont = await GetSemiBoldFontAsync(cancellationToken);
 
-                // 5. Вычисляем позиции
+                // 6. Вычисляем позиции
                 var currentY = config.BlockMarginTop;
 
-                // 6. Рисуем строку "UserName - Slogan"
+                // 7. Рисуем строку "UserName - Slogan"
                 await DrawUserNameAndSloganAsync(
                     canvas,
                     result.UserName,
@@ -73,7 +104,7 @@ namespace ProfilingBot.Core.Services
                     regularFont,
                     currentY);
 
-                // 7. Рисуем ShortName
+                // 8. Рисуем ShortName
                 currentY += config.ShortNameConfig.YOffset;
                 var shortNameWidth = DrawShortNameAsync(
                     canvas,
@@ -82,7 +113,7 @@ namespace ProfilingBot.Core.Services
                     semiBoldFont,
                     currentY);
 
-                // 8. Рисуем линию под ShortName
+                // 9. Рисуем линию под ShortName
                 DrawLineUnderText(
                     canvas,
                     config.BlockMarginLeft,
@@ -91,11 +122,11 @@ namespace ProfilingBot.Core.Services
                     config.ShortNameLineConfig,
                     config.ShortNameConfig.FontSize);
 
-                // 9. Конвертируем в JPEG
+                // 10. Конвертируем в JPEG
                 using var image = surface.Snapshot();
                 using var data = image.Encode(SKEncodedImageFormat.Jpeg, 90);
 
-                _loggerService.LogDebug("Card generated successfully");
+                _loggerService.LogDebug($"Card generated successfully for session {result.SessionId}");
 
                 return data.ToArray();
             }
@@ -115,12 +146,16 @@ namespace ProfilingBot.Core.Services
             CancellationToken cancellationToken)
         {
             // Проверяем кэш
-            if (_cachedBackgrounds.TryGetValue(personalityTypeId, out var cachedImage))
+            lock (_backgroundLock)
             {
-                return cachedImage;
+                if (_cachedBackgrounds.TryGetValue(personalityTypeId, out var cachedImage))
+                {
+                    _loggerService.LogDebug($"Using cached background for type {personalityTypeId}");
+                    return cachedImage;
+                }
             }
 
-            var cardsDir = _configurationService.GetAbsolutePath(config.CardsDirectory);
+            var cardsDir = await ConfigService.GetCardsDirectoryPathAsync();
             var imagePath = Path.Combine(cardsDir, $"{personalityTypeId}.png");
 
             _loggerService.LogDebug($"Loading background from: {imagePath}");
@@ -142,8 +177,12 @@ namespace ProfilingBot.Core.Services
 
                 var image = SKImage.FromBitmap(bitmap);
 
-                // Кэшируем (не dispose!)
-                _cachedBackgrounds[personalityTypeId] = image;
+                lock (_backgroundLock)
+                {
+                    // Кэшируем
+                    _cachedBackgrounds[personalityTypeId] = image;
+                    _loggerService.LogDebug($"Background cached for type {personalityTypeId}");
+                }
 
                 return image;
             }
@@ -156,34 +195,48 @@ namespace ProfilingBot.Core.Services
 
         private async Task<SKTypeface> GetRegularFontAsync(CancellationToken cancellationToken)
         {
-            if (_cachedRegularFont != null)
+            lock (_fontLock)
             {
-                return _cachedRegularFont;
+                if (_cachedRegularFont != null)
+                {
+                    return _cachedRegularFont;
+                }
             }
 
             // Пробуем загрузить embedded шрифт
             var font = await LoadEmbeddedFontAsync("Inter-Regular.ttf", cancellationToken);
 
             // Fallback на системный
-            _cachedRegularFont = font ?? SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+            var fallbackFont = font ?? SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Normal, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
 
-            return _cachedRegularFont;
+            lock (_fontLock)
+            {
+                _cachedRegularFont ??= fallbackFont;
+                return _cachedRegularFont;
+            }
         }
 
         private async Task<SKTypeface> GetSemiBoldFontAsync(CancellationToken cancellationToken)
         {
-            if (_cachedSemiBoldFont != null)
+            lock (_fontLock)
             {
-                return _cachedSemiBoldFont;
+                if (_cachedSemiBoldFont != null)
+                {
+                    return _cachedSemiBoldFont;
+                }
             }
 
             // Пробуем загрузить embedded шрифт
             var font = await LoadEmbeddedFontAsync("Inter-SemiBold.ttf", cancellationToken);
 
             // Fallback на системный
-            _cachedSemiBoldFont = font ?? SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.SemiBold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+            var fallbackFont = font ?? SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.SemiBold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
 
-            return _cachedSemiBoldFont;
+            lock (_fontLock)
+            {
+                _cachedSemiBoldFont ??= fallbackFont;
+                return _cachedSemiBoldFont;
+            }
         }
 
         private async Task<SKTypeface?> LoadEmbeddedFontAsync(string fontFileName, CancellationToken cancellationToken)
@@ -205,7 +258,10 @@ namespace ProfilingBot.Core.Services
                 await stream.CopyToAsync(memoryStream, cancellationToken);
                 memoryStream.Position = 0;
 
-                return SKTypeface.FromStream(memoryStream);
+                var typeface = SKTypeface.FromStream(memoryStream);
+                _loggerService.LogDebug($"Embedded font loaded: {fontFileName}");
+
+                return typeface;
             }
             catch (Exception ex)
             {

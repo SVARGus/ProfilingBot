@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ProfilingBot.Cloud.Handlers;
 using ProfilingBot.Core.Interfaces;
 using ProfilingBot.Core.Services;
@@ -30,15 +31,8 @@ namespace ProfilingBot.Cloud
         public static IServiceCollection AddCoreServices(this IServiceCollection services, string configPath, string dataPath)
         {
             // Логгер
-            services.AddSingleton<ILoggerService>(sp =>
-                new FileLoggerService(Path.Combine(dataPath, "logs")));
+            services.AddSingleton<ILoggerService>(sp => new FileLoggerService(Path.Combine(dataPath, "logs")));
 
-            // Конфигурация
-            services.AddSingleton<IConfigurationService>(sp =>
-            {
-                var logger = sp.GetRequiredService<ILoggerService>();
-                return new FileConfigurationService(configPath, logger);
-            });
 
             // Хранилище
             services.AddSingleton<IStorageService>(sp =>
@@ -47,8 +41,19 @@ namespace ProfilingBot.Cloud
                 return new FileStorageService(dataPath, logger);
             });
 
-            // Генератор карточек (SINGLETON для кэширования)
-            services.AddSingleton<IStoryCardGenerator, StoryCardGenerator>();
+            // Генератор карточек - Singleton с IServiceProvider
+            services.AddSingleton<IStoryCardGenerator>(sp =>
+            {
+                var logger = sp.GetRequiredService<ILoggerService>();
+                return new StoryCardGenerator(logger, sp); // Передаем сам IServiceProvider
+            });
+
+            // Конфигурация (оставляем Scoped, т.к. может кэшировать)
+            services.AddScoped<IConfigurationService>(sp =>
+            {
+                var logger = sp.GetRequiredService<ILoggerService>();
+                return new FileConfigurationService(configPath, logger);
+            });
 
             // Сервисы бизнес-логики
             services.AddScoped<ITestService, TestService>();

@@ -365,13 +365,33 @@ namespace ProfilingBot.Core.Services
             var config = await GetCardGenerationConfigAsync();
             var basePath = GetBasePath();
 
-            var cardsPath = Path.Combine(basePath, config.CardsDirectory);
+            // Проверяем несколько возможных мест
+            var possiblePaths = new[]
+            {
+                Path.Combine(basePath, config.CardsDirectory),  // 1. Относительно base
+                Path.Combine(_configPath, "../..", config.CardsDirectory), // 2. На 2 уровня выше config
+                Path.Combine(AppContext.BaseDirectory, config.CardsDirectory), // 3. Относительно исполняемого файла
+                config.CardsDirectory // 4. Абсолютный путь (если указан)
+            };
 
-            // Нормализуем путь (убираем ../ и т.д.)
-            cardsPath = Path.GetFullPath(cardsPath);
+            foreach (var path in possiblePaths)
+            {
+                var fullPath = Path.GetFullPath(path);
+                _logger.LogDebug($"Checking cards directory: {fullPath}");
 
-            _logger.LogDebug($"Cards directory path: {cardsPath}");
-            return cardsPath;
+                if (Directory.Exists(fullPath))
+                {
+                    _logger.LogInfo($"Found cards directory: {fullPath}");
+                    return fullPath;
+                }
+            }
+
+            // Если ничего не найдено, создаем
+            var fallbackPath = Path.Combine(basePath, config.CardsDirectory);
+            Directory.CreateDirectory(fallbackPath);
+            _logger.LogWarning($"Cards directory not found, created: {fallbackPath}");
+
+            return fallbackPath;
         }
 
         public string GetAbsolutePath(string relativePath)

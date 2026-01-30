@@ -2,7 +2,6 @@
 using ProfilingBot.Core.Interfaces;
 using ProfilingBot.Core.Models;
 using Telegram.Bot;
-using Telegram.Bot.Extensions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 
@@ -11,7 +10,7 @@ namespace ProfilingBot.Cloud.Handlers
     public class CallbackQueryUpdateHandler : UpdateHandler
     {
         private readonly IStorageService _storageService;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IStoryCardGenerator _cardGenerator;
 
         public CallbackQueryUpdateHandler(
             TelegramBotClient botClient,
@@ -19,11 +18,11 @@ namespace ProfilingBot.Cloud.Handlers
             IConfigurationService configurationService,
             ILoggerService logger,
             IStorageService storageService,
-            IServiceProvider serviceProvider)
+            IStoryCardGenerator cardGenerator)
             : base(botClient, testService, configurationService, logger)
         {
             _storageService = storageService;
-            _serviceProvider = serviceProvider;
+            _cardGenerator = cardGenerator;
         }
 
         public override bool CanHandle(Update update)
@@ -40,32 +39,46 @@ namespace ProfilingBot.Cloud.Handlers
 
             _loggerService.LogInfo($"Processing callback from user {userId}: {callbackData}");
 
-            // Обработка ответов на вопросы
-            if (callbackData?.StartsWith("answer_") == true)
+            try
             {
-                await HandleAnswerCallbackAsync(callbackData, userId, chatId, cancellationToken);
+                // Обработка callback'ов
+                if (callbackData?.StartsWith("answer_") == true)
+                {
+                    await HandleAnswerCallbackAsync(callbackData, userId, chatId, cancellationToken);
+                }
+                else if (callbackData?.StartsWith("continue_") == true)
+                {
+                    await HandleContinueCallbackAsync(callbackData, userId, chatId, cancellationToken);
+                }
+                else if (callbackData?.StartsWith("restart_") == true)
+                {
+                    await HandleRestartCallbackAsync(callbackData, userId, chatId, cancellationToken);
+                }
+                else if (callbackData?.StartsWith("getcard_") == true ||
+                         callbackData?.StartsWith("share_") == true)
+                {
+                    await HandleResultActionCallbackAsync(callbackData, userId, chatId, cancellationToken);
+                }
             }
-            // Обработка "Продолжить тест"
-            else if (callbackData?.StartsWith("continue_") == true)
+            catch (Exception ex)
             {
-                await HandleContinueCallbackAsync(callbackData, userId, chatId, cancellationToken);
+                _loggerService.LogError(ex, $"Error processing callback: {callbackData}");
+                // Логируем, но не падаем
             }
-            // Обработка "Начать заново"
-            else if (callbackData?.StartsWith("restart_") == true)
+            finally
             {
-                await HandleRestartCallbackAsync(callbackData, userId, chatId, cancellationToken);
+                // Всегда отвечаем на callback
+                try
+                {
+                    await _botClient.AnswerCallbackQuery(
+                        callbackQueryId: callbackQuery.Id,
+                        cancellationToken: cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _loggerService.LogError(ex, "Failed to answer callback query");
+                }
             }
-            // Обработка действий с результатом
-            else if (callbackData?.StartsWith("getcard_") == true ||
-                     callbackData?.StartsWith("share_") == true)
-            {
-                await HandleResultActionCallbackAsync(callbackData, userId, chatId, cancellationToken);
-            }
-
-            // Отвечаем на callback (убираем "часики" у кнопки)
-            await _botClient.AnswerCallbackQuery(
-                callbackQueryId: callbackQuery.Id,
-                cancellationToken: cancellationToken);
         }
 
         private async Task HandleAnswerCallbackAsync(
@@ -324,12 +337,8 @@ namespace ProfilingBot.Cloud.Handlers
                 // Используем TestService для расчета результата
                 var result = await _testService.CalculateResultAsync(session);
 
-                // Получаем генератор карточек через ServiceProvider
-                using var scope = _serviceProvider.CreateScope();
-                var cardGenerator = scope.ServiceProvider.GetRequiredService<IStoryCardGenerator>();
-
                 // Генерируем карточку
-                var cardImage = await cardGenerator.GenerateCardAsync(
+                var cardImage = await _cardGenerator.GenerateCardAsync(
                     result,
                     personalityType,
                     cancellationToken);
@@ -366,38 +375,39 @@ namespace ProfilingBot.Cloud.Handlers
                 var result = await _testService.CalculateResultAsync(session);
                 var completionMessage = await _configurationService.GetCompletionMessageAsync();
 
+                var botInfo = _botClient.GetMe();
+                var botUsername = botInfo.Result.Username;
+
+                // Экранируем подчеркивания для Markdown
+                var escapedUsername = botUsername.Replace("_", "\\_");
+
                 var shareText = $@"🎉 Поздравляем {session.UserName} с успешным прохождением теста!
 
-                {completionMessage}
+{completionMessage}
 
-                🎯 *{personalityType.FullName}*
+🎯 *{personalityType.FullName}*
 
-                {personalityType.Description}
+{personalityType.Description}
 
-                ✨ *Сфера реализации:* {personalityType.Sphere}
+✨ *Сфера реализации:* {personalityType.Sphere}
 
-                💪 *Сильные стороны:* {personalityType.Strengths}
+💪 *Сильные стороны:* {personalityType.Strengths}
 
-                📋 *Рекомендации:* {personalityType.Recommendations}
+📋 *Рекомендации:* {personalityType.Recommendations}
 
-                *Баллы по типам:*
-                • Социальный: {result.Scores[1]}
-                • Творческий: {result.Scores[2]}
-                • Технический: {result.Scores[3]}
-                • Аналитический: {result.Scores[4]}
-                • Натуралистический: {result.Scores[5]}
+*Баллы по типам:*
+• Социальный: {result.Scores[1]}
+• Творческий: {result.Scores[2]}
+• Технический: {result.Scores[3]}
+• Аналитический: {result.Scores[4]}
+• Натуралистический: {result.Scores[5]}
 
-                💡 Пройдите тест сами: https://t.me/{_botClient.GetMe(cancellationToken).Result.Username}";
+💡 Пройдите тест сами: @{escapedUsername}";
 
-                using var scope = _serviceProvider.CreateScope();
-                var cardGenerator = scope.ServiceProvider.GetRequiredService<IStoryCardGenerator>();
-                var cardImage = await cardGenerator.GenerateCardAsync(
+                var cardImage = await _cardGenerator.GenerateCardAsync(
                     result,
                     personalityType,
                     cancellationToken);
-
-                var botInfo = await _botClient.GetMe(cancellationToken);
-                var botUsername = botInfo.Username;
 
                 var keyboard = new InlineKeyboardMarkup(new[]
                 {
@@ -451,19 +461,22 @@ namespace ProfilingBot.Cloud.Handlers
         {
             var result = await _testService.CalculateResultAsync(session);
             var completionMessage = await _configurationService.GetCompletionMessageAsync();
-            var botInfo = await _botClient.GetMe(cancellationToken);
+            var botInfo = _botClient.GetMe();
+            var botUsername = botInfo.Result.Username;
+            // Экранируем подчеркивания для Markdown
+            var escapedUsername = botUsername.Replace("_", "\\_");
 
             var shareText = $@"🎉 Поздравляем {session.UserName} с успешным прохождением теста!
 
-            {completionMessage}
+{completionMessage}
 
-            🎯 *{personalityType.FullName}*
-            {personalityType.Description}
+🎯 *{personalityType.FullName}*
+{personalityType.Description}
 
-            *Баллы:*
-            Социальный: {result.Scores[1]}, Творческий: {result.Scores[2]}, Технический: {result.Scores[3]}, Аналитический: {result.Scores[4]}, Натуралистический: {result.Scores[5]}
+*Баллы:*
+Социальный: {result.Scores[1]}, Творческий: {result.Scores[2]}, Технический: {result.Scores[3]}, Аналитический: {result.Scores[4]}, Натуралистический: {result.Scores[5]}
 
-            💡 Пройди тест и узнай свой тип личности: https://t.me/{botInfo.Username}";
+💡 Пройди тест и узнай свой тип личности: @{escapedUsername}";
 
             var keyboard = new InlineKeyboardMarkup(new[]
             {
@@ -473,7 +486,7 @@ namespace ProfilingBot.Cloud.Handlers
                 },
                 new[]
                 {
-                    InlineKeyboardButton.WithUrl("🤖 Начать тест", $"https://t.me/{botInfo.Username}?start=share_{session.Id}")
+                    InlineKeyboardButton.WithUrl("🤖 Начать тест", $"https://t.me/{botUsername}?start=share_{session.Id}")
                 }
             });
 

@@ -8,7 +8,7 @@
 
   "userNameConfig": {
     "fontFamily": "Inter",
-    "fontStyle": "Regular",
+    "fontStyle": 0,
     "fontSize": 32,
     "letterSpacingPercent": 2,
     "colorHex": "#FFFFFF",
@@ -17,7 +17,7 @@
 
   "shortNameConfig": {
     "fontFamily": "Inter",
-    "fontStyle": "SemiBold",
+    "fontStyle": 1,
     "fontSize": 40,
     "letterSpacingPercent": 10,
     "colorHex": "#DCE6F2",
@@ -26,7 +26,7 @@
 
   "sloganConfig": {
     "fontFamily": "Inter",
-    "fontStyle": "Regular",
+    "fontStyle": 0,
     "fontSize": 32,
     "letterSpacingPercent": 0,
     "colorHex": "#AAB6C4",

@@ -12,6 +12,12 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Link>config\%(RecursiveDir)%(Filename)%(Extension)</Link>
 		</None>
+
+		<!-- ДОБАВИТЬ: Копируем assets из корневой папки assets -->
+		<None Update="..\..\..\assets\**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Link>assets\%(RecursiveDir)%(Filename)%(Extension)</Link>
+		</None>
 	</ItemGroup>
 
 	<ItemGroup>
