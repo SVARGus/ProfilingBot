@@ -18,17 +18,17 @@
     <ProjectReference Include="..\ProfilingBot.Core\ProfilingBot.Core.csproj" />
   </ItemGroup>
 
-	<ItemGroup>
-		<!-- Копируем конфигурацию из корневой папки config -->
+	<!--<ItemGroup>
+		--><!-- Копируем конфигурацию из корневой папки config --><!--
 		<Content Include="..\..\..\config\**">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Link>config\%(RecursiveDir)%(Filename)%(Extension)</Link>
 		</Content>
-		<!-- ДОБАВИТЬ: Копируем assets из корневой папки assets -->
+		--><!-- ДОБАВИТЬ: Копируем assets из корневой папки assets --><!--
 		<None Include="..\..\..\assets\**">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Link>assets\%(RecursiveDir)%(Filename)%(Extension)</Link>
 		</None>
-	</ItemGroup>
+	</ItemGroup>-->
 
 </Project>

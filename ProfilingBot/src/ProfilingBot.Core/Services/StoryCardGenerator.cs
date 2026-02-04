@@ -158,11 +158,36 @@ namespace ProfilingBot.Core.Services
             var cardsDir = await ConfigService.GetCardsDirectoryPathAsync();
             var imagePath = Path.Combine(cardsDir, $"{personalityTypeId}.png");
 
-            _loggerService.LogDebug($"Loading background from: {imagePath}");
+            _loggerService.LogDebug($"=== DEBUG: Loading background ===");
+            _loggerService.LogDebug($"Cards directory: {cardsDir}");
+            _loggerService.LogDebug($"Image path: {imagePath}");
+            _loggerService.LogDebug($"File exists: {File.Exists(imagePath)}");
+            _loggerService.LogDebug($"=== END DEBUG ===");
 
             if (!File.Exists(imagePath))
             {
-                throw new FileNotFoundException($"Background image not found: {imagePath}");
+                // Пробуем найти в других местах перед выбросом исключения
+                var fallbackPaths = new[]
+                {
+                    Path.Combine(Directory.GetCurrentDirectory(), "assets", "cards", $"{personalityTypeId}.png"),
+                    Path.Combine(AppContext.BaseDirectory, "assets", "cards", $"{personalityTypeId}.png"),
+                    Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "assets", "cards", $"{personalityTypeId}.png")
+                };
+
+                foreach (var fallbackPath in fallbackPaths)
+                {
+                    if (File.Exists(fallbackPath))
+                    {
+                        imagePath = fallbackPath;
+                        _loggerService.LogInfo($"Found fallback image: {imagePath}");
+                        break;
+                    }
+                }
+
+                if (!File.Exists(imagePath))
+                {
+                    throw new FileNotFoundException($"Background image not found for type {personalityTypeId}. Tried: {imagePath}");
+                }
             }
 
             try

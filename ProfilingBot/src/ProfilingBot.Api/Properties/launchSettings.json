@@ -7,9 +7,10 @@
       "applicationUrl": "http://localhost:5000;https://localhost:5001",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "CONFIG_PATH": "../../../config",
-        "DATA_PATH": "../../../data",
-        "LOGS_PATH": "../../../logs"
+        "CONFIG_PATH": "D:\\My_Project_IT\\Телеграмм-бот для TecForce\\profiling-bot\\config",
+        "ASSETS_PATH": "D:\\My_Project_IT\\Телеграмм-бот для TecForce\\profiling-bot\\assets",
+        "DATA_PATH": "D:\\My_Project_IT\\Телеграмм-бот для TecForce\\profiling-bot\\data",
+        "LOGS_PATH": "D:\\My_Project_IT\\Телеграмм-бот для TecForce\\profiling-bot\\logs"
       }
     }
   }

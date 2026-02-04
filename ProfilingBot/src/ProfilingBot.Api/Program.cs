@@ -20,12 +20,14 @@ builder.Logging.AddDebug();
 // Конфигурация сервисов
 var configPath = builder.Configuration["CONFIG_PATH"] ?? "./config";
 var dataPath = builder.Configuration["DATA_PATH"] ?? "./data";
+var assetsPath = builder.Configuration["ASSETS_PATH"] ?? "./assets";
 var botToken = builder.Configuration["BOT_TOKEN"];
 
 // ========== ДОБАВЛЕНО: Отладочный вывод ==========
 Console.WriteLine($"=== DEBUG CONFIGURATION ===");
 Console.WriteLine($"CONFIG_PATH: {configPath}");
 Console.WriteLine($"DATA_PATH: {dataPath}");
+Console.WriteLine($"ASSETS_PATH: {assetsPath}");
 Console.WriteLine($"BOT_TOKEN present: {!string.IsNullOrEmpty(botToken)}");
 if (!string.IsNullOrEmpty(botToken))
 {
@@ -34,6 +36,11 @@ if (!string.IsNullOrEmpty(botToken))
 }
 Console.WriteLine($"===========================");
 // =================================================
+
+// Устанавливаем переменные окружения для Core слоя
+Environment.SetEnvironmentVariable("CONFIG_PATH", configPath);
+Environment.SetEnvironmentVariable("ASSETS_PATH", assetsPath);
+Environment.SetEnvironmentVariable("DATA_PATH", dataPath);
 
 if (string.IsNullOrEmpty(botToken))
 {

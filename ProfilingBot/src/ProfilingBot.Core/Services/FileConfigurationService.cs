@@ -363,16 +363,33 @@ namespace ProfilingBot.Core.Services
         public async Task<string> GetCardsDirectoryPathAsync()
         {
             var config = await GetCardGenerationConfigAsync();
-            var basePath = GetBasePath();
 
-            // Проверяем несколько возможных мест
-            var possiblePaths = new[]
+            // Пробуем несколько вариантов в порядке приоритета:
+            var possiblePaths = new List<string>();
+
+            // 1. Явно заданный путь через ASSETS_PATH
+            var assetsPathFromEnv = Environment.GetEnvironmentVariable("ASSETS_PATH");
+            if (!string.IsNullOrEmpty(assetsPathFromEnv))
             {
-                Path.Combine(basePath, config.CardsDirectory),  // 1. Относительно base
-                Path.Combine(_configPath, "../..", config.CardsDirectory), // 2. На 2 уровня выше config
-                Path.Combine(AppContext.BaseDirectory, config.CardsDirectory), // 3. Относительно исполняемого файла
-                config.CardsDirectory // 4. Абсолютный путь (если указан)
-            };
+                possiblePaths.Add(Path.Combine(assetsPathFromEnv, config.CardsDirectory));
+            }
+
+            // 2. Рядом с config (для разработки)
+            possiblePaths.Add(Path.Combine(_configPath, "..", "assets", config.CardsDirectory));
+            possiblePaths.Add(Path.Combine(_configPath, "..", "..", "assets", config.CardsDirectory));
+
+            // 3. В рабочей директории
+            possiblePaths.Add(Path.Combine(Directory.GetCurrentDirectory(), "assets", config.CardsDirectory));
+
+            // 4. В выходной сборке (для Debug)
+            var assemblyLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            if (!string.IsNullOrEmpty(assemblyLocation))
+            {
+                possiblePaths.Add(Path.Combine(assemblyLocation, "assets", config.CardsDirectory));
+            }
+
+            // 5. Относительный путь (последний резерв)
+            possiblePaths.Add(Path.Combine("assets", config.CardsDirectory));
 
             foreach (var path in possiblePaths)
             {
@@ -387,9 +404,9 @@ namespace ProfilingBot.Core.Services
             }
 
             // Если ничего не найдено, создаем
-            var fallbackPath = Path.Combine(basePath, config.CardsDirectory);
+            var fallbackPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", config.CardsDirectory);
+            _logger.LogWarning($"Cards directory not found, creating: {fallbackPath}");
             Directory.CreateDirectory(fallbackPath);
-            _logger.LogWarning($"Cards directory not found, created: {fallbackPath}");
 
             return fallbackPath;
         }
