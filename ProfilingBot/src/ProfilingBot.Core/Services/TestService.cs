@@ -254,6 +254,9 @@ namespace ProfilingBot.Core.Services
             var maxTypeId = personalityTypes.Max(t => t.Id);
             var scores = new int[maxTypeId + 1];
 
+            _logger.LogDebug($"Calculating scores. Max type ID: {maxTypeId}");
+            _logger.LogDebug($"Session answers count: {session.Answers.Count}");
+
             foreach (var answerEntry in session.Answers)
             {
                 var questionId = answerEntry.Key;
@@ -262,14 +265,20 @@ namespace ProfilingBot.Core.Services
                 var question = questions.First(q => q.Id == questionId);
                 var answer = question.Answers.First(a => a.Id == answerId);
 
+                _logger.LogDebug($"Q{questionId} -> A{answerId} -> Type{answer.IdPersonalityType}");
+
                 scores[answer.IdPersonalityType]++;
             }
+
+            _logger.LogDebug($"Final scores: {string.Join(", ", scores.Select((s, i) => $"[{i}]={s}"))}");
 
             return scores;
         }
 
         private int DeterminePersonalityType(int[] scores, List<PersonalityType> personalityTypes)
         {
+            _logger.LogDebug($"Determining personality type from scores...");
+
             int maxScore = -1;
             int personalityTypeId = -1;
 
@@ -277,17 +286,32 @@ namespace ProfilingBot.Core.Services
             {
                 var score = scores[type.Id];
 
+                _logger.LogDebug($"Type {type.Id} ({type.Name}): {score} points");
+
                 if (score > maxScore)
                 {
                     maxScore = score;
                     personalityTypeId = type.Id;
+                    _logger.LogDebug($"  -> New leader: {type.Name} with {score} points");
+                }
+                else if (score == maxScore && personalityTypeId > 0)
+                {
+                    // При ничье отдаем приоритет типу с меньшим ID
+                    if (type.Id < personalityTypeId)
+                    {
+                        personalityTypeId = type.Id;
+                        _logger.LogDebug($"  -> Tie resolved: choosing {type.Name} (lower ID)");
+                    }
                 }
             }
 
             if (personalityTypeId == -1)
             {
                 personalityTypeId = personalityTypes.OrderBy(t => t.Id).First().Id;
+                _logger.LogWarning($"No scores found, defaulting to type {personalityTypeId}");
             }
+
+            _logger.LogInfo($"Selected personality type ID: {personalityTypeId} with {maxScore} points");
 
             return personalityTypeId;
         }

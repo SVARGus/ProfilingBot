@@ -4,7 +4,7 @@
   "blockMarginLeft": 60,
   "blockMarginTop": 50,
   "blockMaxWidth": 600,
-  "cardsDirectory": "assets/cards",
+  "cardsDirectory": "cards",
 
   "userNameConfig": {
     "fontFamily": "Inter",

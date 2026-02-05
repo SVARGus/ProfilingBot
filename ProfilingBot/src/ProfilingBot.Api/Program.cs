@@ -76,6 +76,25 @@ builder.Services.AddControllers()
 // Health checks (базовый, для будущего мониторинга)
 builder.Services.AddHealthChecks();
 
+Console.WriteLine("=== VERIFYING PATHS ===");
+Console.WriteLine($"Config path exists: {Directory.Exists(configPath)} -> {configPath}");
+Console.WriteLine($"Assets path exists: {Directory.Exists(assetsPath)} -> {assetsPath}");
+Console.WriteLine($"Data path exists: {Directory.Exists(dataPath)} -> {dataPath}");
+
+// Проверяем карточки
+var cardsPath = Path.Combine(assetsPath, "cards");
+Console.WriteLine($"Cards path exists: {Directory.Exists(cardsPath)} -> {cardsPath}");
+if (Directory.Exists(cardsPath))
+{
+    var cardFiles = Directory.GetFiles(cardsPath, "*.png");
+    Console.WriteLine($"Found {cardFiles.Length} card images:");
+    foreach (var file in cardFiles)
+    {
+        Console.WriteLine($"  - {Path.GetFileName(file)}");
+    }
+}
+Console.WriteLine("========================");
+
 var app = builder.Build();
 
 // Конфигурация конвейера HTTP-запросов

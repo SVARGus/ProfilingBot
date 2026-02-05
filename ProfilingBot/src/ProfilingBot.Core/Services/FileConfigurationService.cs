@@ -388,7 +388,13 @@ namespace ProfilingBot.Core.Services
                 possiblePaths.Add(Path.Combine(assemblyLocation, "assets", config.CardsDirectory));
             }
 
-            // 5. Относительный путь (последний резерв)
+            // 5. Абсолютный путь из конфига (если указан абсолютный)
+            if (Path.IsPathRooted(config.CardsDirectory))
+            {
+                possiblePaths.Add(config.CardsDirectory);
+            }
+
+            // 6. Относительный путь (последний резерв)
             possiblePaths.Add(Path.Combine("assets", config.CardsDirectory));
 
             foreach (var path in possiblePaths)
@@ -399,11 +405,16 @@ namespace ProfilingBot.Core.Services
                 if (Directory.Exists(fullPath))
                 {
                     _logger.LogInfo($"Found cards directory: {fullPath}");
+
+                    // Дополнительная проверка: есть ли файлы в директории
+                    var pngFiles = Directory.GetFiles(fullPath, "*.png");
+                    _logger.LogDebug($"Found {pngFiles.Length} PNG files in directory");
+
                     return fullPath;
                 }
             }
 
-            // Если ничего не найдено, создаем
+            // Если ничего не найдено - создаем (только для разработки)
             var fallbackPath = Path.Combine(Directory.GetCurrentDirectory(), "assets", config.CardsDirectory);
             _logger.LogWarning($"Cards directory not found, creating: {fallbackPath}");
             Directory.CreateDirectory(fallbackPath);
