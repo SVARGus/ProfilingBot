@@ -3,6 +3,7 @@ using ProfilingBot.Core.Interfaces;
 using ProfilingBot.Core.Models;
 using SkiaSharp;
 using System.Reflection;
+using System.Text;
 
 namespace ProfilingBot.Core.Services
 {
@@ -95,32 +96,34 @@ namespace ProfilingBot.Core.Services
                 // 6. Вычисляем позиции
                 var currentY = config.BlockMarginTop;
 
-                // 7. Рисуем строку "UserName - Slogan"
+                // 7. Рисуем ShortName
+                var shortNameWidth = DrawShortName(
+                    canvas,
+                    personalityType.ShortName,
+                    config,
+                    semiBoldFont,
+                    currentY + config.ShortNameConfig.YOffset);
+
+                // 8. Рисуем линию под ShortName
+                var shortNameBottomY = currentY + config.ShortNameConfig.YOffset + config.ShortNameConfig.FontSize + 10;
+
+                DrawLineUnderText(
+                    canvas,
+                    config.BlockMarginLeft,
+                    shortNameBottomY,
+                    shortNameWidth,
+                    config.ShortNameLineConfig);
+
+                // 9. Рисуем строку "UserName - Slogan"
+                var userNameSloganY = shortNameBottomY + config.ShortNameLineConfig.VerticalOffset + 10; // отступ после линии
+
                 await DrawUserNameAndSloganAsync(
                     canvas,
                     result.UserName,
                     personalityType.Slogan,
                     config,
                     regularFont,
-                    currentY);
-
-                // 8. Рисуем ShortName
-                currentY += config.ShortNameConfig.YOffset;
-                var shortNameWidth = DrawShortNameAsync(
-                    canvas,
-                    personalityType.ShortName,
-                    config,
-                    semiBoldFont,
-                    currentY);
-
-                // 9. Рисуем линию под ShortName
-                DrawLineUnderText(
-                    canvas,
-                    config.BlockMarginLeft,
-                    currentY,
-                    shortNameWidth,
-                    config.ShortNameLineConfig,
-                    config.ShortNameConfig.FontSize);
+                    userNameSloganY);
 
                 // 10. Конвертируем в JPEG
                 using var image = surface.Snapshot();
@@ -295,7 +298,7 @@ namespace ProfilingBot.Core.Services
             string slogan,
             CardGenerationConfig config,
             SKTypeface regularFont,
-            float currentY)
+            float startY)
         {
             var userNameText = $"{userName} - ";
             var sloganText = slogan;
@@ -312,17 +315,32 @@ namespace ProfilingBot.Core.Services
             var userNameWidth = userNameFont.MeasureText(userNameText);
             var sloganWidth = sloganFont.MeasureText(sloganText);
 
-            // Проверяем, не выходит ли за пределы
-            var totalWidth = userNameWidth + sloganWidth;
-            if (totalWidth > config.BlockMaxWidth)
-            {
-                // Укорачиваем userName если нужно
-                var maxUserNameWidth = config.BlockMaxWidth - sloganWidth - 10;
-                userNameText = ShortenText(userNameText, userNameFont, maxUserNameWidth);
-                userNameWidth = userNameFont.MeasureText(userNameText);
-            }
+            // Максимальная ширина для блока
+            var maxWidth = config.BlockMaxWidth;
 
-            // Создаем SKPaint для цветов
+            // Если всё помещается в одну строку
+            if (userNameWidth + sloganWidth <= maxWidth)
+            {
+                DrawSingleLineUserNameAndSlogan(canvas, userNameText, sloganText,
+                    userNameFont, sloganFont, config, startY);
+            }
+            else
+            {
+                // Если не помещается - рисуем в две строки
+                await DrawMultiLineUserNameAndSlogan(canvas, userName, sloganText,
+                    userNameFont, sloganFont, config, startY, maxWidth);
+            }
+        }
+
+        private void DrawSingleLineUserNameAndSlogan(
+            SKCanvas canvas,
+            string userNameText,
+            string sloganText,
+            SKFont userNameFont,
+            SKFont sloganFont,
+            CardGenerationConfig config,
+            float yPos)
+        {
             using var userNamePaint = new SKPaint
             {
                 Color = SKColor.Parse(config.UserNameConfig.ColorHex),
@@ -339,27 +357,117 @@ namespace ProfilingBot.Core.Services
             canvas.DrawText(
                 text: userNameText,
                 x: config.BlockMarginLeft,
-                y: currentY + config.UserNameConfig.FontSize,
-                textAlign: SKTextAlign.Left,
+                y: yPos + config.UserNameConfig.FontSize,
                 font: userNameFont,
                 paint: userNamePaint);
 
             // Рисуем Slogan сразу после UserName
+            var userNameWidth = userNameFont.MeasureText(userNameText);
             canvas.DrawText(
                 text: sloganText,
                 x: config.BlockMarginLeft + userNameWidth,
-                y: currentY + config.SloganConfig.FontSize,
-                textAlign: SKTextAlign.Left,
+                y: yPos + config.SloganConfig.FontSize,
                 font: sloganFont,
                 paint: sloganPaint);
         }
 
-        private float DrawShortNameAsync(
+        private async Task DrawMultiLineUserNameAndSlogan(
+            SKCanvas canvas,
+            string userName,
+            string sloganText,
+            SKFont userNameFont,
+            SKFont sloganFont,
+            CardGenerationConfig config,
+            float startY,
+            float maxWidth)
+        {
+            using var userNamePaint = new SKPaint
+            {
+                Color = SKColor.Parse(config.UserNameConfig.ColorHex),
+                IsAntialias = true
+            };
+
+            using var sloganPaint = new SKPaint
+            {
+                Color = SKColor.Parse(config.SloganConfig.ColorHex),
+                IsAntialias = true
+            };
+
+            // 1. Рисуем UserName в первой строке
+            var userNameLine = $"{userName} -";
+            canvas.DrawText(
+                text: userNameLine,
+                x: config.BlockMarginLeft,
+                y: startY + config.UserNameConfig.FontSize,
+                font: userNameFont,
+                paint: userNamePaint);
+
+            // 2. Разбиваем slogan на несколько строк если нужно
+            var sloganLines = await SplitTextIntoLines(sloganText, sloganFont, maxWidth);
+
+            // 3. Рисуем каждую строку слогана
+            var lineHeight = sloganFont.Size * 1.2f; // межстрочный интервал
+            var currentY = startY + config.UserNameConfig.FontSize + lineHeight;
+
+            foreach (var line in sloganLines)
+            {
+                canvas.DrawText(
+                    text: line,
+                    x: config.BlockMarginLeft,
+                    y: currentY,
+                    font: sloganFont,
+                    paint: sloganPaint);
+
+                currentY += lineHeight;
+            }
+        }
+
+        private async Task<List<string>> SplitTextIntoLines(string text, SKFont font, float maxWidth)
+        {
+            var lines = new List<string>();
+            var words = text.Split(' ');
+            var currentLine = new StringBuilder();
+
+            foreach (var word in words)
+            {
+                var testLine = currentLine.Length > 0
+                    ? currentLine.ToString() + " " + word
+                    : word;
+
+                var lineWidth = font.MeasureText(testLine);
+
+                if (lineWidth <= maxWidth)
+                {
+                    currentLine.Clear();
+                    currentLine.Append(testLine);
+                }
+                else
+                {
+                    // Добавляем текущую строку и начинаем новую
+                    if (currentLine.Length > 0)
+                    {
+                        lines.Add(currentLine.ToString());
+                    }
+                    currentLine.Clear();
+                    currentLine.Append(word);
+                }
+            }
+
+            // Добавляем последнюю строку
+            if (currentLine.Length > 0)
+            {
+                lines.Add(currentLine.ToString());
+            }
+
+            return lines;
+        }
+
+        private float DrawShortName(
             SKCanvas canvas,
             string shortName,
             CardGenerationConfig config,
             SKTypeface semiBoldFont,
-            float currentY)
+            float yPos)
         {
             // Создаем SKFont
             var font = new SKFont(semiBoldFont, config.ShortNameConfig.FontSize);
@@ -376,7 +484,7 @@ namespace ProfilingBot.Core.Services
             canvas.DrawText(
                 text: shortName,
                 x: config.BlockMarginLeft,
-                y: currentY + config.ShortNameConfig.FontSize,
+                y: yPos + config.ShortNameConfig.FontSize,
                 textAlign: SKTextAlign.Left,
                 font: font,
                 paint: paint);
@@ -410,10 +518,9 @@ namespace ProfilingBot.Core.Services
         private void DrawLineUnderText(
             SKCanvas canvas,
             float startX,
-            float textY,
+            float textBottomY, // Y координата НИЖНЕЙ границы текста
             float textWidth,
-            LineConfig lineConfig,
-            float fontSize)
+            LineConfig lineConfig)
         {
             using var paint = new SKPaint
             {
@@ -424,7 +531,7 @@ namespace ProfilingBot.Core.Services
             };
 
             // Линия под текстом с отступом
-            var lineY = textY + fontSize + lineConfig.VerticalOffset;
+            var lineY = textBottomY + lineConfig.VerticalOffset;
             canvas.DrawLine(startX, lineY, startX + textWidth, lineY, paint);
         }
     }

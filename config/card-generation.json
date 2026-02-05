@@ -21,7 +21,7 @@
     "fontSize": 40,
     "letterSpacingPercent": 10,
     "colorHex": "#DCE6F2",
-    "yOffset": 80
+    "yOffset": 0
   },
 
   "sloganConfig": {
@@ -37,6 +37,6 @@
     "colorHex": "#DCE6F2",
     "opacity": 0.7,
     "strokeWidth": 2,
-    "verticalOffset": 10
+    "verticalOffset": 15
   }
 }
