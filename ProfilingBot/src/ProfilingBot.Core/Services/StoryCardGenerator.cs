@@ -293,42 +293,106 @@ namespace ProfilingBot.Core.Services
         }
 
         private async Task DrawUserNameAndSloganAsync(
-            SKCanvas canvas,
-            string userName,
-            string slogan,
-            CardGenerationConfig config,
-            SKTypeface regularFont,
-            float startY)
+    SKCanvas canvas,
+    string userName,
+    string slogan,
+    CardGenerationConfig config,
+    SKTypeface regularFont,
+    float startY)
         {
-            var userNameText = $"{userName} - ";
-            var sloganText = slogan;
+            var fullText = $"{userName} - {slogan}";
 
-            // Создаем SKFont для userName
-            var userNameFont = new SKFont(regularFont, config.UserNameConfig.FontSize);
-            var sloganFont = new SKFont(regularFont, config.SloganConfig.FontSize);
+            // Создаем шрифт
+            var font = new SKFont(regularFont, config.UserNameConfig.FontSize);
+            font.ScaleX = 1.0f + (config.UserNameConfig.LetterSpacingPercent / 100f);
 
-            // Настраиваем letter spacing
-            userNameFont.ScaleX = 1.0f + (config.UserNameConfig.LetterSpacingPercent / 100f);
-            sloganFont.ScaleX = 1.0f + (config.SloganConfig.LetterSpacingPercent / 100f);
+            // Разбиваем на строки с учетом максимальной ширины
+            var lines = new List<string>();
+            var words = fullText.Split(' ');
+            var currentLine = new StringBuilder();
 
-            // Измеряем текст
-            var userNameWidth = userNameFont.MeasureText(userNameText);
-            var sloganWidth = sloganFont.MeasureText(sloganText);
-
-            // Максимальная ширина для блока
-            var maxWidth = config.BlockMaxWidth;
-
-            // Если всё помещается в одну строку
-            if (userNameWidth + sloganWidth <= maxWidth)
+            foreach (var word in words)
             {
-                DrawSingleLineUserNameAndSlogan(canvas, userNameText, sloganText,
-                    userNameFont, sloganFont, config, startY);
+                var testLine = currentLine.Length > 0
+                    ? currentLine + " " + word
+                    : word;
+
+                if (font.MeasureText(testLine) <= config.BlockMaxWidth)
+                {
+                    currentLine.Clear();
+                    currentLine.Append(testLine);
+                }
+                else
+                {
+                    if (currentLine.Length > 0)
+                    {
+                        lines.Add(currentLine.ToString());
+                    }
+                    currentLine.Clear();
+                    currentLine.Append(word);
+                }
             }
-            else
+
+            if (currentLine.Length > 0)
             {
-                // Если не помещается - рисуем в две строки
-                await DrawMultiLineUserNameAndSlogan(canvas, userName, sloganText,
-                    userNameFont, sloganFont, config, startY, maxWidth);
+                lines.Add(currentLine.ToString());
+            }
+
+            // Рисуем строки с разными цветами
+            var lineHeight = font.Size * 1.4f;
+            var currentY = startY + font.Size;
+            var userNamePrefix = $"{userName} - ";
+            var userNamePrefixFound = false;
+
+            using var userNamePaint = new SKPaint
+            {
+                Color = SKColor.Parse(config.UserNameConfig.ColorHex),
+                IsAntialias = true
+            };
+
+            using var sloganPaint = new SKPaint
+            {
+                Color = SKColor.Parse(config.SloganConfig.ColorHex),
+                IsAntialias = true
+            };
+
+            foreach (var line in lines)
+            {
+                float currentX = config.BlockMarginLeft;
+
+                if (!userNamePrefixFound && line.Contains(userNamePrefix))
+                {
+                    // Нашли строку с префиксом UserName
+                    var prefixIndex = line.IndexOf(userNamePrefix);
+
+                    // Рисуем часть до префикса (если есть)
+                    if (prefixIndex > 0)
+                    {
+                        var beforePrefix = line.Substring(0, prefixIndex);
+                        canvas.DrawText(beforePrefix, currentX, currentY, font, sloganPaint);
+                        currentX += font.MeasureText(beforePrefix);
+                    }
+
+                    // Рисуем префикс UserName
+                    canvas.DrawText(userNamePrefix, currentX, currentY, font, userNamePaint);
+                    currentX += font.MeasureText(userNamePrefix);
+
+                    // Рисуем остаток строки после префикса
+                    var afterPrefix = line.Substring(prefixIndex + userNamePrefix.Length);
+                    if (!string.IsNullOrEmpty(afterPrefix))
+                    {
+                        canvas.DrawText(afterPrefix, currentX, currentY, font, sloganPaint);
+                    }
+
+                    userNamePrefixFound = true;
+                }
+                else
+                {
+                    // Все последующие строки - только Slogan
+                    canvas.DrawText(line, currentX, currentY, font, sloganPaint);
+                }
+
+                currentY += lineHeight;
             }
         }
 
