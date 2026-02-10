@@ -1,16 +1,20 @@
 [
   {
-    "userId": 0,
-    "userName": "@SalandJulia",
-    "role": "owner",
-    "addedAt": "2026-01-01T00:00:00Z",
-    "addedBy": "system"
+    "UserId": 0,
+    "UserName": "@SalandJulia",
+    "Role": "owner",
+    "AddedAt": "2026-01-01T00:00:00Z",
+    "AddedBy": "system",
+    "IsOwner": true,
+    "CanManageAdmins": true
   },
   {
-    "userId": 0,
-    "userName": "@SVARGuser",
-    "role": "admin",
-    "addedAt": "2026-01-01T00:00:00Z",
-    "addedBy": "system"
+    "UserId": 1088014818,
+    "UserName": "@SVARGuser",
+    "Role": "admin",
+    "AddedAt": "2026-01-01T00:00:00Z",
+    "AddedBy": "system",
+    "IsOwner": false,
+    "CanManageAdmins": false
   }
 ]

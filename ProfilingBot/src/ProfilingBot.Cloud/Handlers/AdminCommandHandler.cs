@@ -39,6 +39,7 @@ namespace ProfilingBot.Cloud.Handlers
         {
             var userId = update.Message?.From?.Id ?? update.CallbackQuery?.From?.Id;
             var chatId = update.Message?.Chat.Id ?? update.CallbackQuery?.Message?.Chat.Id;
+            var userName = update.Message?.From?.Username ?? update.CallbackQuery?.From?.Username;
 
             if (!userId.HasValue || !chatId.HasValue)
             {
@@ -46,14 +47,35 @@ namespace ProfilingBot.Cloud.Handlers
                 return;
             }
 
-            // Проверяем права доступа
-            if (!await _adminService.IsAdminAsync(userId.Value))
+            // Пробуем обновить ID админа по username если он есть
+            if (!string.IsNullOrEmpty(userName))
+            {
+                _loggerService.LogDebug($"Trying to update admin ID for username: {userName}");
+                await _adminService.TryUpdateAdminIdAsync(userId.Value, userName);
+            }
+
+            // Проверяем права доступа с username (для случая UserId = 0)
+            bool isAdmin = false;
+
+            if (!string.IsNullOrEmpty(userName))
+            {
+                // Проверяем с использованием username
+                // Нужно добавить перегруженный метод в IAdminService
+                isAdmin = await IsAdminWithUsernameAsync(userId.Value, userName);
+            }
+            else
+            {
+                // Стандартная проверка
+                isAdmin = await _adminService.IsAdminAsync(userId.Value);
+            }
+
+            if (!isAdmin)
             {
                 await HandleNonAdminAccess(userId.Value, chatId.Value, cancellationToken);
                 return;
             }
 
-            _loggerService.LogInfo($"Admin command from user {userId}");
+            _loggerService.LogInfo($"Admin command from user {userId} (@{userName})");
 
             try
             {
@@ -70,6 +92,33 @@ namespace ProfilingBot.Cloud.Handlers
             {
                 _loggerService.LogError(ex, $"Error handling admin command from user {userId}");
                 await SendErrorMessageAsync(chatId.Value, cancellationToken);
+            }
+        }
+
+        private async Task<bool> IsAdminWithUsernameAsync(long userId, string userName)
+        {
+            // Временный метод, пока не добавим в интерфейс
+            try
+            {
+                // Сначала стандартная проверка
+                if (await _adminService.IsAdminAsync(userId))
+                {
+                    return true;
+                }
+
+                // Проверяем по username (для UserId = 0)
+                var admins = await _adminService.GetAdminsAsync();
+                var cleanUserName = userName.StartsWith("@") ? userName : $"@{userName}";
+
+                return admins.Any(a =>
+                    a.UserId == 0 &&
+                    !string.IsNullOrEmpty(a.UserName) &&
+                    a.UserName.Equals(cleanUserName, StringComparison.OrdinalIgnoreCase));
+            }
+            catch (Exception ex)
+            {
+                _loggerService.LogError(ex, $"Error in IsAdminWithUsernameAsync for user {userId}");
+                return false;
             }
         }
 
@@ -361,9 +410,14 @@ namespace ProfilingBot.Cloud.Handlers
             var totalTests = await _storageService.GetCompletedSessionsCountAsync();
             var activeSessions = (await _storageService.GetAllActiveSessionsAsync()).Count;
 
+            var botUsername = botInfo.Username;
+
+            // Экранируем подчеркивания для Markdown
+            var escapedUsername = botUsername.Replace("_", "\\_");
+
             var message = $"🤖 *Информация о боте*\n\n" +
                          $"Имя: {botInfo.FirstName}\n" +
-                         $"Username: @{botInfo.Username}\n" +
+                         $"Username: @{escapedUsername}\n" +
                          $"ID: {botInfo.Id}\n\n" +
                          $"📊 *Статистика:*\n" +
                          $"Всего тестов: {totalTests}\n" +

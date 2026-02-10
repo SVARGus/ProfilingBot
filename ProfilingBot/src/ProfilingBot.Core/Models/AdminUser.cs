@@ -1,4 +1,6 @@
-﻿namespace ProfilingBot.Core.Models
+﻿using System.Text.Json.Serialization;
+
+namespace ProfilingBot.Core.Models
 {
     public class AdminUser
     {

@@ -9,6 +9,9 @@ namespace ProfilingBot.Core.Interfaces
         Task<bool> IsOwnerAsync(long userId);
         Task<bool> CanManageAdminsAsync(long userId); // Только для владельца
 
+        // === ОБНОВЛЕНИЕ ID ===
+        Task<bool> TryUpdateAdminIdAsync(long userId, string userName);
+
         // === УПРАВЛЕНИЕ АДМИНАМИ (только для owner) ===
         Task<List<AdminUser>> GetAdminsAsync();
         Task<bool> AddAdminAsync(AdminUser admin, long addedByUserId);

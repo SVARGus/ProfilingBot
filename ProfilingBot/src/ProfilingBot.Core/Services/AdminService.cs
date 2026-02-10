@@ -39,24 +39,22 @@ namespace ProfilingBot.Core.Services
         // === БАЗОВЫЕ ПРОВЕРКИ ===
         public async Task<bool> IsAdminAsync(long userId)
         {
-            await EnsureCacheFreshAsync();
-
-            // Сначала по userId
-            var admin = _cachedAdmins.FirstOrDefault(a => a.UserId == userId);
-            if (admin != null)
-            {
-                return true;
-            }
-
-            // Если пользователь написал боту, можно дополнительно проверить по username
-            // (но это делается в обработчике, не здесь)
-            return false;
+            return await IsAdminAsync(userId, null);
         }
 
         public async Task<bool> IsOwnerAsync(long userId)
         {
             await EnsureCacheFreshAsync();
-            return _cachedAdmins.Any(a => a.UserId == userId && a.Role == "owner");
+
+            // 1. Прямая проверка по ID
+            var owner = _cachedAdmins.FirstOrDefault(a => a.UserId == userId && a.Role == "owner");
+            if (owner != null)
+            {
+                _logger.LogDebug($"User {userId} found as owner by ID: {owner.UserName}");
+                return true;
+            }
+
+            return false;
         }
 
         public async Task<bool> CanManageAdminsAsync(long userId)
@@ -301,26 +299,26 @@ namespace ProfilingBot.Core.Services
                 }
 
                 // Проверяем, есть ли owner с ненулевым ID
-                var owners = admins.Where(a => a.Role == "owner" && a.UserId != 0).ToList();
-                if (!owners.Any())
-                {
-                    _logger.LogWarning($"No valid owner found (with non-zero ID)! Owners in config: {admins.Count(a => a.Role == "owner")}");
-                    _logger.LogWarning($"Adding you as owner: ID=1088014818, Name=@SVARGuser");
+                //var owners = admins.Where(a => a.Role == "owner" && a.UserId != 0).ToList();
+                //if (!owners.Any())
+                //{
+                //    _logger.LogWarning($"No valid owner found (with non-zero ID)! Owners in config: {admins.Count(a => a.Role == "owner")}");
+                //    _logger.LogWarning($"Adding you as owner: ID=1088014818, Name=@SVARGuser");
 
-                    // Добавляем вас как owner
-                    admins.Add(new AdminUser
-                    {
-                        UserId = 1088014818,
-                        UserName = "@SVARGuser",
-                        Role = "owner",
-                        AddedAt = DateTime.UtcNow,
-                        AddedBy = "system_fix"
-                    });
-                }
-                else
-                {
-                    _logger.LogInfo($"Found {owners.Count} valid owner(s). First owner ID: {owners.First().UserId}");
-                }
+                //    // Добавляем вас как owner
+                //    admins.Add(new AdminUser
+                //    {
+                //        UserId = 1088014818,
+                //        UserName = "@SVARGuser",
+                //        Role = "owner",
+                //        AddedAt = DateTime.UtcNow,
+                //        AddedBy = "system_fix"
+                //    });
+                //}
+                //else
+                //{
+                //    _logger.LogInfo($"Found {owners.Count} valid owner(s). First owner ID: {owners.First().UserId}");
+                //}
 
                 _cachedAdmins = admins;
                 _lastCacheUpdate = DateTime.UtcNow;
@@ -436,6 +434,90 @@ namespace ProfilingBot.Core.Services
                                     .ToList();
 
             return (int)hours.Average(h => h.Count);
+        }
+
+        // === НОВЫЙ МЕТОД: Обновить ID админа при совпадении username ===
+        public async Task<bool> TryUpdateAdminIdAsync(long userId, string userName)
+        {
+            await EnsureCacheFreshAsync();
+
+            _logger.LogDebug($"Trying to update admin ID: username='{userName}' -> userId={userId}");
+
+            // Ищем админа с совпадающим username и UserId = 0
+            var adminToUpdate = _cachedAdmins.FirstOrDefault(a =>
+                a.UserId == 0 &&
+                !string.IsNullOrEmpty(a.UserName) &&
+                a.UserName.Equals(userName, StringComparison.OrdinalIgnoreCase));
+
+            if (adminToUpdate == null)
+            {
+                // Также проверяем без @
+                var cleanUserName = userName.StartsWith("@") ? userName.Substring(1) : userName;
+                adminToUpdate = _cachedAdmins.FirstOrDefault(a =>
+                    a.UserId == 0 &&
+                    !string.IsNullOrEmpty(a.UserName) &&
+                    (a.UserName.Equals($"@{cleanUserName}", StringComparison.OrdinalIgnoreCase) ||
+                     a.UserName.Equals(cleanUserName, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (adminToUpdate != null)
+            {
+                _logger.LogInfo($"Updating admin ID: {adminToUpdate.UserName} from {adminToUpdate.UserId} to {userId}");
+
+                adminToUpdate.UserId = userId;
+                await SaveAdminsAsync();
+
+                return true;
+            }
+
+            _logger.LogDebug($"No admin found with username '{userName}' and ID=0");
+            return false;
+        }
+
+        // === ОБНОВЛЕННЫЙ IsAdminAsync с обновлением ID ===
+        public async Task<bool> IsAdminAsync(long userId, string? userName)
+        {
+            await EnsureCacheFreshAsync();
+
+            _logger.LogDebug($"Checking admin status: userId={userId}, userName={userName}");
+
+            // 1. Прямая проверка по ID
+            if (_cachedAdmins.Any(a => a.UserId == userId))
+            {
+                _logger.LogDebug($"User {userId} found as admin by ID");
+                return true;
+            }
+
+            // 2. Если передан username, пробуем обновить ID
+            if (!string.IsNullOrEmpty(userName) && await TryUpdateAdminIdAsync(userId, userName))
+            {
+                // После обновления проверяем снова
+                if (_cachedAdmins.Any(a => a.UserId == userId))
+                {
+                    _logger.LogDebug($"User {userId} ({userName}) now recognized as admin after ID update");
+                    return true;
+                }
+            }
+
+            // 3. Проверка по username (для UserId = 0)
+            if (!string.IsNullOrEmpty(userName))
+            {
+                var cleanUserName = userName.StartsWith("@") ? userName : $"@{userName}";
+                var isAdminByUsername = _cachedAdmins.Any(a =>
+                    a.UserId == 0 &&
+                    !string.IsNullOrEmpty(a.UserName) &&
+                    a.UserName.Equals(cleanUserName, StringComparison.OrdinalIgnoreCase));
+
+                if (isAdminByUsername)
+                {
+                    _logger.LogDebug($"User {userId} ({userName}) found as admin by username (ID=0)");
+                }
+
+                return isAdminByUsername;
+            }
+
+            _logger.LogDebug($"User {userId} is NOT admin");
+            return false;
         }
     }
 }
