@@ -1,4 +1,5 @@
 ﻿using ProfilingBot.Core.Interfaces;
+using ProfilingBot.Core.Models;
 using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -27,12 +28,30 @@ namespace ProfilingBot.Cloud.Handlers
             _exportService = exportService;
         }
 
+        // Временное хранилище ожидающих действий (userId -> ожидаемое действие)
+        private static readonly Dictionary<long, PendingAdminAction> _pendingActions = new();
+        private readonly object _pendingActionsLock = new();
+
+        private class PendingAdminAction
+        {
+            public string ActionType { get; set; } = string.Empty; // "add_admin"
+            public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+            public string? AdditionalData { get; set; }
+        }
+
         public override bool CanHandle(Update update)
         {
             // Команда /admin или сообщение "Админ-панель"
-            return update.Message?.Text?.Equals("/admin", StringComparison.OrdinalIgnoreCase) == true ||
-                   update.Message?.Text?.Equals("Админ-панель", StringComparison.OrdinalIgnoreCase) == true ||
-                   update.CallbackQuery?.Data?.StartsWith("admin_") == true;
+            bool isAdminCommand = update.Message?.Text?.Equals("/admin", StringComparison.OrdinalIgnoreCase) == true ||
+                              update.Message?.Text?.Equals("Админ-панель", StringComparison.OrdinalIgnoreCase) == true ||
+                              update.CallbackQuery?.Data?.StartsWith("admin_") == true;
+
+            // Также обрабатываем сообщения, если пользователь в состоянии ожидания
+            bool isPendingAction = update.Message?.Text != null &&
+                                  !update.Message.Text.StartsWith('/') &&
+                                  IsUserWaitingForAction(update.Message.From.Id);
+
+            return isAdminCommand || isPendingAction;
         }
 
         public override async Task HandleAsync(Update update, CancellationToken cancellationToken)
@@ -44,6 +63,15 @@ namespace ProfilingBot.Cloud.Handlers
             if (!userId.HasValue || !chatId.HasValue)
             {
                 _loggerService.LogWarning("Admin command without user/chat ID");
+                return;
+            }
+
+            // Проверяем, ожидает ли пользователь действия
+            var pendingAction = GetPendingAction(userId.Value);
+            if (pendingAction != null && update.Message?.Text != null)
+            {
+                await HandlePendingActionAsync(userId.Value, chatId.Value, update.Message.Text,
+                    pendingAction, cancellationToken);
                 return;
             }
 
@@ -92,6 +120,185 @@ namespace ProfilingBot.Cloud.Handlers
             {
                 _loggerService.LogError(ex, $"Error handling admin command from user {userId}");
                 await SendErrorMessageAsync(chatId.Value, cancellationToken);
+            }
+        }
+
+        private async Task HandlePendingActionAsync(
+        long userId,
+        long chatId,
+        string messageText,
+        PendingAdminAction pendingAction,
+        CancellationToken cancellationToken)
+        {
+            try
+            {
+                // Проверяем отмену
+                if (messageText.Equals("/cancel", StringComparison.OrdinalIgnoreCase))
+                {
+                    ClearPendingAction(userId);
+                    await _botClient.SendMessage(
+                        chatId: chatId,
+                        text: "❌ Добавление администратора отменено.",
+                        cancellationToken: cancellationToken);
+                    return;
+                }
+
+                switch (pendingAction.ActionType)
+                {
+                    case "add_admin":
+                        await ProcessAddAdminAsync(userId, chatId, messageText, cancellationToken);
+                        break;
+
+                    default:
+                        _loggerService.LogWarning($"Unknown pending action: {pendingAction.ActionType}");
+                        ClearPendingAction(userId);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _loggerService.LogError(ex, $"Error handling pending action: {pendingAction.ActionType}");
+                await SendErrorMessageAsync(chatId, cancellationToken);
+                ClearPendingAction(userId);
+            }
+        }
+
+        private async Task ProcessAddAdminAsync(
+            long addedByUserId,
+            long chatId,
+            string inputText,
+            CancellationToken cancellationToken)
+        {
+            ClearPendingAction(addedByUserId);
+
+            // Очищаем ввод
+            var userName = inputText.Trim();
+
+            // Убираем @ если есть
+            if (userName.StartsWith("@"))
+            {
+                userName = userName.Substring(1);
+            }
+
+            // Валидация
+            if (string.IsNullOrWhiteSpace(userName) || userName.Length < 3)
+            {
+                await _botClient.SendMessage(
+                    chatId: chatId,
+                    text: "❌ Некорректный username. Username должен содержать минимум 3 символа.",
+                    cancellationToken: cancellationToken);
+                return;
+            }
+
+            // Получаем информацию о том, кто добавляет
+            var addedByAdmin = await GetAdminInfoAsync(addedByUserId);
+            var addedByUserName = addedByAdmin?.UserName ?? $"User_{addedByUserId}";
+
+            // Добавляем @ для хранения
+            var fullUserName = $"@{userName}";
+
+            // Создаем нового админа
+            var newAdmin = new AdminUser
+            {
+                UserId = 0, // Пока 0, обновится при первом обращении
+                UserName = fullUserName,
+                Role = "admin", // По умолчанию обычный админ
+                AddedAt = DateTime.UtcNow,
+                AddedBy = addedByUserName
+            };
+
+            // Добавляем через сервис
+            var result = await _adminService.AddAdminAsync(newAdmin, addedByUserId);
+
+            if (result)
+            {
+                await _botClient.SendMessage(
+                    chatId: chatId,
+                    text: $"✅ Администратор {fullUserName} успешно добавлен!\n\n" +
+                          $"ID будет автоматически обновлен при первом обращении пользователя.",
+                    cancellationToken: cancellationToken);
+
+                _loggerService.LogInfo($"Admin added: {fullUserName} by user {addedByUserId}");
+            }
+            else
+            {
+                await _botClient.SendMessage(
+                    chatId: chatId,
+                    text: $"❌ Не удалось добавить администратора {fullUserName}.\n" +
+                          $"Возможно, такой администратор уже существует.",
+                    cancellationToken: cancellationToken);
+            }
+        }
+
+        private async Task<AdminUser?> GetAdminInfoAsync(long userId)
+        {
+            try
+            {
+                var admins = await _adminService.GetAdminsAsync();
+                return admins.FirstOrDefault(a => a.UserId == userId);
+            }
+            catch (Exception ex)
+            {
+                _loggerService.LogError(ex, $"Failed to get admin info for user {userId}");
+                return null;
+            }
+        }
+
+        // === МЕТОДЫ ДЛЯ РАБОТЫ С PENDING ACTIONS ===
+
+        private bool IsUserWaitingForAction(long userId)
+        {
+            lock (_pendingActionsLock)
+            {
+                if (_pendingActions.TryGetValue(userId, out var action))
+                {
+                    // Очищаем устаревшие действия (старше 5 минут)
+                    if (DateTime.UtcNow - action.CreatedAt > TimeSpan.FromMinutes(5))
+                    {
+                        _pendingActions.Remove(userId);
+                        return false;
+                    }
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        private PendingAdminAction? GetPendingAction(long userId)
+        {
+            lock (_pendingActionsLock)
+            {
+                if (_pendingActions.TryGetValue(userId, out var action))
+                {
+                    // Очищаем устаревшие
+                    if (DateTime.UtcNow - action.CreatedAt > TimeSpan.FromMinutes(5))
+                    {
+                        _pendingActions.Remove(userId);
+                        return null;
+                    }
+                    return action;
+                }
+                return null;
+            }
+        }
+
+        private void SetPendingAction(long userId, PendingAdminAction action)
+        {
+            lock (_pendingActionsLock)
+            {
+                _pendingActions[userId] = action;
+                _loggerService.LogDebug($"Set pending action for user {userId}: {action.ActionType}");
+            }
+        }
+
+        private void ClearPendingAction(long userId)
+        {
+            lock (_pendingActionsLock)
+            {
+                if (_pendingActions.Remove(userId))
+                {
+                    _loggerService.LogDebug($"Cleared pending action for user {userId}");
+                }
             }
         }
 
@@ -513,6 +720,12 @@ namespace ProfilingBot.Cloud.Handlers
                     cancellationToken: cancellationToken);
                 return;
             }
+
+            // Сохраняем состояние ожидания
+            SetPendingAction(chatId, new PendingAdminAction
+            {
+                ActionType = "add_admin"
+            });
 
             await _botClient.SendMessage(
                 chatId: chatId,

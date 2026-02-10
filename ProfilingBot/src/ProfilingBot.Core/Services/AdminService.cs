@@ -80,15 +80,13 @@ namespace ProfilingBot.Core.Services
             }
 
             // Проверяем, не существует ли уже
-            if (_cachedAdmins.Any(a => a.UserId == admin.UserId ||
-                                      (a.UserId == 0 && a.UserName == admin.UserName)))
+            if (_cachedAdmins.Any(a => (a.UserId == admin.UserId && a.UserId != 0) || // Уже есть с таким ненулевым ID
+                (a.UserName.Equals(admin.UserName, StringComparison.OrdinalIgnoreCase) && a.UserId == 0 && admin.UserId == 0) || // Оба с ID=0 и одинаковые usernames
+                (a.UserName.Equals(admin.UserName, StringComparison.OrdinalIgnoreCase) && a.UserId != 0 && admin.UserId == 0))) // Существует с ненулевым ID, а мы добавляем с 0
             {
                 _logger.LogWarning($"Admin already exists: {admin.UserName} (ID: {admin.UserId})");
                 return false;
             }
-
-            admin.AddedAt = DateTime.UtcNow;
-            admin.AddedBy = addedByUserId.ToString();
 
             _cachedAdmins.Add(admin);
             await SaveAdminsAsync();
