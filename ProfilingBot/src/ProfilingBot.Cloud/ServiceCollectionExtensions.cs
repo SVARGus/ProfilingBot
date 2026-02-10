@@ -20,10 +20,28 @@ namespace ProfilingBot.Cloud
             // Также регистрируем TelegramBotClient для обратной совместимости
             services.AddSingleton(botClient);
 
-            services.AddScoped<UpdateRouter>();
-            services.AddScoped<UpdateHandler, CommandUpdateHandler>();
-            services.AddScoped<UpdateHandler, CallbackQueryUpdateHandler>();
-            services.AddScoped<UpdateHandler, TextMessageUpdateHandler>();
+            // Регистрируем обработчики
+            services.AddScoped<CommandUpdateHandler>();
+            services.AddScoped<CallbackQueryUpdateHandler>();
+            services.AddScoped<TextMessageUpdateHandler>();
+            services.AddScoped<AdminCommandHandler>();
+
+            // UpdateRouter с явными зависимостями
+            services.AddScoped<UpdateRouter>(sp =>
+            {
+                var logger = sp.GetRequiredService<ILoggerService>();
+                var commandHandler = sp.GetRequiredService<CommandUpdateHandler>();
+                var callbackHandler = sp.GetRequiredService<CallbackQueryUpdateHandler>();
+                var textHandler = sp.GetRequiredService<TextMessageUpdateHandler>();
+                var adminHandler = sp.GetRequiredService<AdminCommandHandler>();
+
+                return new UpdateRouter(
+                    commandHandler,
+                    callbackHandler,
+                    textHandler,
+                    adminHandler,
+                    logger);
+            });
 
             return services;
         }
@@ -48,6 +66,9 @@ namespace ProfilingBot.Cloud
                 return new StoryCardGenerator(logger, sp); // Передаем сам IServiceProvider
             });
 
+            // Сервис экспорта
+            services.AddSingleton<IExportService, ExcelExportService>();
+
             // Конфигурация (оставляем Scoped, т.к. может кэшировать)
             services.AddScoped<IConfigurationService>(sp =>
             {
@@ -57,6 +78,7 @@ namespace ProfilingBot.Cloud
 
             // Сервисы бизнес-логики
             services.AddScoped<ITestService, TestService>();
+            services.AddScoped<IAdminService, AdminService>();
             services.AddScoped<IResultGeneratorService, ResultGeneratorService>();
 
             return services;

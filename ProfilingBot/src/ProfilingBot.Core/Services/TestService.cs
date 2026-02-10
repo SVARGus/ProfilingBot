@@ -13,15 +13,18 @@ namespace ProfilingBot.Core.Services
         private readonly IConfigurationService _configService;
         private readonly IStorageService _storageService;
         private readonly ILoggerService _logger;
+        private readonly IExportService _exportService;
 
         public TestService(
             IConfigurationService configService,
             IStorageService storageService,
-            ILoggerService logger)
+            ILoggerService logger,
+            IExportService exportService)
         {
             _configService = configService;
             _storageService = storageService;
             _logger = logger;
+            _exportService = exportService;
 
             _logger.LogInfo("TestService initialized");
         }
@@ -209,7 +212,36 @@ namespace ProfilingBot.Core.Services
 
         public async Task<byte[]> ExportSessionsToExcelAsync(DateTime from, DateTime to)
         {
-            return await _storageService.ExportToExcelAsync(from, to);
+            try
+            {
+                _logger.LogInfo($"Exporting sessions to Excel: {from:dd.MM.yyyy} - {to:dd.MM.yyyy}");
+
+                // 1. Получаем данные
+                var sessions = await _storageService.GetCompletedSessionsAsync(from, to);
+                var personalityTypes = await _configService.GetPersonalityTypesAsync();
+
+                if (!sessions.Any())
+                {
+                    _logger.LogWarning($"No sessions found for export: {from:dd.MM.yyyy} - {to:dd.MM.yyyy}");
+                    // Можно вернуть пустой Excel или бросить исключение
+                    return Array.Empty<byte>();
+                }
+
+                // 2. Делегируем экспорт специализированному сервису
+                var excelData = await _exportService.ExportSessionsToExcelAsync(
+                    sessions,
+                    personalityTypes,
+                    from,
+                    to);
+
+                _logger.LogInfo($"Successfully exported {sessions.Count} sessions to Excel");
+                return excelData;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to export sessions to Excel: {from:dd.MM.yyyy} - {to:dd.MM.yyyy}");
+                throw;
+            }
         }
 
         public async Task<TestResult> CalculateResultAsync(TestSession completedSession)

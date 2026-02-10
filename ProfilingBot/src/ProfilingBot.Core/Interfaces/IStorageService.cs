@@ -16,7 +16,4 @@ public interface IStorageService
     Task SaveCompletedSessionAsync(TestSession session);
     Task<List<TestSession>> GetCompletedSessionsAsync(DateTime? from = null, DateTime? to = null);
     Task<int> GetCompletedSessionsCountAsync();
-
-    // Excel экспорт
-    Task<byte[]> ExportToExcelAsync(DateTime from, DateTime to);
 }

@@ -147,53 +147,6 @@ namespace ProfilingBot.Core.Services
             return sessions.Count;
         }
 
-        // === Excel экспорт ===
-
-        public async Task<byte[]> ExportToExcelAsync(DateTime from, DateTime to)
-        {
-            var sessions = await GetCompletedSessionsAsync(from, to);
-
-            // TODO: Реальная реализация Excel экспорта с ClosedXML
-            // Пока возвращаем JSON для простоты
-            var exportData = new
-            {
-                ExportDate = DateTime.UtcNow,
-                From = from,
-                To = to,
-                TotalSessions = sessions.Count,
-                Sessions = sessions.Select(s => new
-                {
-                    s.Id,
-                    s.UserId,
-                    s.UserName,
-                    StartedAt = s.StartedAt.ToString("yyyy-MM-dd HH:mm:ss"),
-                    CompletedAt = s.CompletedAt?.ToString("yyyy-MM-dd HH:mm:ss"),
-                    s.ResultIdPersonalityType,
-                    s.ResultNamePersonalityType,
-                    Answers = s.Answers.Select(a => new
-                    {
-                        QuestionId = a.Key,
-                        AnswerId = a.Value
-                    }).ToList()
-                }).ToList()
-            };
-
-            var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
-
-            // Сохраняем экспорт в файл
-            var exportFileName = $"report_{DateTime.UtcNow:yyyyMMddHHmmss}.json";
-            var exportPath = Path.Combine(_dataPath, "exports", exportFileName);
-
-            await File.WriteAllTextAsync(exportPath, json);
-
-            _logger.LogInfo($"Exported {sessions.Count} sessions to {exportPath}");
-
-            return Encoding.UTF8.GetBytes(json);
-        }
-
         // === Вспомогательные методы для работы с файлами ===
 
         private List<TestSession> LoadActiveSessions()

@@ -1,0 +1,16 @@
+[
+  {
+    "userId": 0,
+    "userName": "@SalandJulia",
+    "role": "owner",
+    "addedAt": "2026-01-01T00:00:00Z",
+    "addedBy": "system"
+  },
+  {
+    "userId": 0,
+    "userName": "@SVARGuser",
+    "role": "admin",
+    "addedAt": "2026-01-01T00:00:00Z",
+    "addedBy": "system"
+  }
+]
