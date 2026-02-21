@@ -75,7 +75,9 @@ namespace ProfilingBot.Cloud.Handlers
                           "/start — начать работу с ботом\n" +
                           "/help — показать эту справку\n" +
                           "/admin — админ-панель (для администраторов)\n\n" +
-                          "Нажми кнопку «Начать тест» для старта.";
+                          "Нажми кнопку «Начать тест» для старта.\n\n" +
+                          "——————————————\n" +
+                          "Разработка чат-ботов: @SVARGuser";
 
             await _botClient.SendMessage(
                 chatId: message.Chat.Id,
