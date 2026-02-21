@@ -123,6 +123,38 @@ namespace ProfilingBot.Core.Services
             return true;
         }
 
+        public async Task<bool> RemoveAdminByUsernameAsync(string userName, long removedByUserId)
+        {
+            if (!await CanManageAdminsAsync(removedByUserId))
+            {
+                _logger.LogWarning($"User {removedByUserId} attempted to remove admin without permission");
+                return false;
+            }
+
+            var cleanUserName = userName.StartsWith("@") ? userName : $"@{userName}";
+            var adminToRemove = _cachedAdmins.FirstOrDefault(a =>
+                !string.IsNullOrEmpty(a.UserName) &&
+                a.UserName.Equals(cleanUserName, StringComparison.OrdinalIgnoreCase));
+
+            if (adminToRemove == null)
+            {
+                _logger.LogWarning($"Admin not found for removal by username: {userName}");
+                return false;
+            }
+
+            if (adminToRemove.Role == "owner")
+            {
+                _logger.LogWarning($"Cannot remove owner: {userName}");
+                return false;
+            }
+
+            _cachedAdmins.Remove(adminToRemove);
+            await SaveAdminsAsync();
+
+            _logger.LogInfo($"Admin removed: {adminToRemove.UserName} (ID: {adminToRemove.UserId}) by {removedByUserId}");
+            return true;
+        }
+
         // === СТАТИСТИКА ===
         public async Task<DailyStats> GetDailyStatsAsync(DateTime date)
         {

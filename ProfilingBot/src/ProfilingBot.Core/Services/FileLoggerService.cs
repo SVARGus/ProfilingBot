@@ -4,11 +4,13 @@ namespace ProfilingBot.Core.Services
 {
     public class FileLoggerService : ILoggerService
     {
+        private readonly string _logsDirectory;
         private readonly string _logFilePath;
         private readonly object _lock = new();
 
         public FileLoggerService(string logsDirectory)
         {
+            _logsDirectory = logsDirectory;
             // Создаем директорию если её нет
             if (!Directory.Exists(logsDirectory))
             {
@@ -46,6 +48,26 @@ namespace ProfilingBot.Core.Services
 #if DEBUG
             WriteLog("DEBUG", message);
 #endif
+        }
+
+        public string GetLogsDirectory() => _logsDirectory;
+
+        public List<string> GetLogFiles(int lastDays = 7)
+        {
+            var files = new List<string>();
+            if (!Directory.Exists(_logsDirectory))
+                return files;
+
+            for (int i = 0; i < lastDays; i++)
+            {
+                var date = DateTime.Now.AddDays(-i).ToString("yyyyMMdd");
+                var filePath = Path.Combine(_logsDirectory, $"bot_{date}.log");
+                if (File.Exists(filePath))
+                {
+                    files.Add(filePath);
+                }
+            }
+            return files;
         }
 
         private void WriteLog(string level, string message)

@@ -1,4 +1,5 @@
-﻿using ProfilingBot.Core.Interfaces;
+﻿using ProfilingBot.Core.Helpers;
+using ProfilingBot.Core.Interfaces;
 using ProfilingBot.Core.Models;
 using System.Text;
 using Telegram.Bot;
@@ -375,6 +376,11 @@ namespace ProfilingBot.Cloud.Handlers
                     InlineKeyboardButton.WithCallbackData("👥 Список админов", "admin_list_admins"),
                     InlineKeyboardButton.WithCallbackData("➕ Добавить админа", "admin_add_admin")
                 });
+                buttons.Add(new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("📋 Лог файлы", "admin_logs"),
+                    InlineKeyboardButton.WithCallbackData("📦 JSON результатов", "admin_json")
+                });
             }
 
             var keyboard = new InlineKeyboardMarkup(buttons);
@@ -431,8 +437,35 @@ namespace ProfilingBot.Cloud.Handlers
                         await PromptAddAdminAsync(chatId, cancellationToken);
                         break;
 
+                    case "admin_logs":
+                        await ShowLogsMenuAsync(chatId, cancellationToken);
+                        break;
+
+                    case "admin_logs_7d":
+                        await SendLogFilesAsync(chatId, 7, cancellationToken);
+                        break;
+
+                    case "admin_json":
+                        await SendCompletedSessionsJsonAsync(chatId, cancellationToken);
+                        break;
+
                     case "admin_back":
                         await ShowAdminMenuAsync(chatId, cancellationToken);
+                        break;
+
+                    default:
+                        if (callbackQuery.Data?.StartsWith("admin_del_") == true)
+                        {
+                            await HandleDeleteAdminAsync(callbackQuery.Data, chatId, userId, cancellationToken);
+                        }
+                        else if (callbackQuery.Data?.StartsWith("admin_delok_") == true)
+                        {
+                            await ConfirmDeleteAdminAsync(callbackQuery.Data, chatId, userId, cancellationToken);
+                        }
+                        else if (callbackQuery.Data?.StartsWith("admin_log_") == true)
+                        {
+                            await SendSingleLogFileAsync(callbackQuery.Data, chatId, cancellationToken);
+                        }
                         break;
                 }
             }
@@ -462,7 +495,7 @@ namespace ProfilingBot.Cloud.Handlers
                 var stats = await _adminService.GetDailyStatsAsync(DateTime.UtcNow.Date);
 
                 var message = new StringBuilder();
-                message.AppendLine($"📊 *Статистика за {DateTime.UtcNow:dd.MM.yyyy}*\n");
+                message.AppendLine($"📊 *Статистика за {TimeHelper.NowMoscow:dd.MM.yyyy}*\n");
                 message.AppendLine($"✅ Завершено тестов: *{stats.TotalTestsCompleted}*");
                 message.AppendLine($"👥 Уникальных пользователей: *{stats.TotalUniqueUsers}*");
                 message.AppendLine($"⏱️ Среднее время теста: *{stats.AverageTestDuration:mm\\:ss}*");
@@ -522,7 +555,7 @@ namespace ProfilingBot.Cloud.Handlers
 
                 var message = new StringBuilder();
                 message.AppendLine($"📈 *Статистика за неделю*");
-                message.AppendLine($"{startDate:dd.MM.yyyy} - {DateTime.UtcNow:dd.MM.yyyy}\n");
+                message.AppendLine($"{TimeHelper.ToMoscowTime(startDate):dd.MM.yyyy} - {TimeHelper.NowMoscow:dd.MM.yyyy}\n");
                 message.AppendLine($"✅ Всего тестов: *{stats.TotalTestsCompleted}*");
                 message.AppendLine($"👥 Уникальных пользователей: *{stats.TotalUniqueUsers}*");
                 message.AppendLine($"⏱️ Среднее время теста: *{stats.AverageTestDuration:mm\\:ss}*");
@@ -586,13 +619,13 @@ namespace ProfilingBot.Cloud.Handlers
                 }
 
                 using var stream = new MemoryStream(excelData);
-                var fileName = $"report_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+                var fileName = $"report_{TimeHelper.NowMoscow:yyyyMMdd_HHmmss}.xlsx";
 
                 await _botClient.SendDocument(
                     chatId: chatId,
                     document: InputFile.FromStream(stream, fileName),
                     caption: $"📋 Отчет {periodDescription}\n" +
-                            $"📅 Сгенерировано: {DateTime.UtcNow:dd.MM.yyyy HH:mm}",
+                            $"📅 Сгенерировано: {TimeHelper.NowMoscow:dd.MM.yyyy HH:mm} (МСК)",
                     cancellationToken: cancellationToken);
 
                 // Удаляем сообщение "Генерирую..."
@@ -632,7 +665,7 @@ namespace ProfilingBot.Cloud.Handlers
                          $"⚙️ *Конфигурация:*\n" +
                          $"Вопросов в тесте: {config.TotalQuestions}\n" +
                          $"Вариантов ответа: {config.AnswersPerQuestion}\n\n" +
-                         $"🔄 Последнее обновление: {DateTime.UtcNow:dd.MM.yyyy HH:mm}";
+                         $"🔄 Последнее обновление: {TimeHelper.NowMoscow:dd.MM.yyyy HH:mm} (МСК)";
 
             var keyboard = new InlineKeyboardMarkup(new[]
             {
@@ -675,23 +708,35 @@ namespace ProfilingBot.Cloud.Handlers
                 var message = new StringBuilder();
                 message.AppendLine("👥 *Список администраторов*\n");
 
-                foreach (var admin in admins)
+                var buttons = new List<InlineKeyboardButton[]>();
+
+                for (int i = 0; i < admins.Count; i++)
                 {
+                    var admin = admins[i];
                     var roleIcon = admin.Role == "owner" ? "👑" : "🛠️";
                     message.AppendLine($"{roleIcon} {admin.UserName} (ID: {admin.UserId})");
                     message.AppendLine($"Роль: {admin.Role}");
-                    message.AppendLine($"Добавлен: {admin.AddedAt:dd.MM.yyyy}");
+                    message.AppendLine($"Добавлен: {TimeHelper.ToMoscowTime(admin.AddedAt):dd.MM.yyyy}");
                     message.AppendLine($"Добавил: {admin.AddedBy}\n");
+
+                    // Кнопка удаления только для не-owner
+                    if (admin.Role != "owner")
+                    {
+                        buttons.Add(new[]
+                        {
+                            InlineKeyboardButton.WithCallbackData(
+                                $"❌ Удалить {admin.UserName}", $"admin_del_{i}")
+                        });
+                    }
                 }
 
-                var keyboard = new InlineKeyboardMarkup(new[]
+                buttons.Add(new[]
                 {
-                    new[]
-                    {
-                        InlineKeyboardButton.WithCallbackData("➕ Добавить админа", "admin_add_admin"),
-                        InlineKeyboardButton.WithCallbackData("⬅️ Назад", "admin_back")
-                    }
+                    InlineKeyboardButton.WithCallbackData("➕ Добавить админа", "admin_add_admin"),
+                    InlineKeyboardButton.WithCallbackData("⬅️ Назад", "admin_back")
                 });
+
+                var keyboard = new InlineKeyboardMarkup(buttons);
 
                 await _botClient.SendMessage(
                     chatId: chatId,
@@ -737,6 +782,230 @@ namespace ProfilingBot.Cloud.Handlers
 
             // TODO: Реализовать состояние ожидания username
             // Можно использовать FSM (Finite State Machine) или просто ждать следующее сообщение
+        }
+
+        private async Task ShowLogsMenuAsync(long chatId, CancellationToken cancellationToken)
+        {
+            var logFiles = _loggerService.GetLogFiles(7);
+            var message = $"📋 *Лог файлы*\n\nДоступно файлов: {logFiles.Count}\n\n";
+
+            var buttons = new List<InlineKeyboardButton[]>();
+
+            if (logFiles.Count > 0)
+            {
+                buttons.Add(new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("📦 Все за 7 дней", "admin_logs_7d")
+                });
+
+                foreach (var logFile in logFiles)
+                {
+                    var fileName = Path.GetFileNameWithoutExtension(logFile);
+                    // bot_yyyyMMdd -> extract date part
+                    var datePart = fileName.Replace("bot_", "");
+                    buttons.Add(new[]
+                    {
+                        InlineKeyboardButton.WithCallbackData($"📄 {datePart}", $"admin_log_{datePart}")
+                    });
+                }
+            }
+
+            buttons.Add(new[]
+            {
+                InlineKeyboardButton.WithCallbackData("⬅️ Назад", "admin_back")
+            });
+
+            await _botClient.SendMessage(
+                chatId: chatId,
+                text: message,
+                parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown,
+                replyMarkup: new InlineKeyboardMarkup(buttons),
+                cancellationToken: cancellationToken);
+        }
+
+        private async Task SendLogFilesAsync(long chatId, int days, CancellationToken cancellationToken)
+        {
+            var logFiles = _loggerService.GetLogFiles(days);
+
+            if (logFiles.Count == 0)
+            {
+                await _botClient.SendMessage(
+                    chatId: chatId,
+                    text: "📭 Нет лог-файлов за указанный период.",
+                    cancellationToken: cancellationToken);
+                return;
+            }
+
+            await _botClient.SendMessage(
+                chatId: chatId,
+                text: $"📋 Отправляю {logFiles.Count} лог-файл(ов)...",
+                cancellationToken: cancellationToken);
+
+            foreach (var filePath in logFiles)
+            {
+                try
+                {
+                    using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                    var fileName = Path.GetFileName(filePath);
+                    await _botClient.SendDocument(
+                        chatId: chatId,
+                        document: InputFile.FromStream(stream, fileName),
+                        cancellationToken: cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _loggerService.LogError(ex, $"Failed to send log file: {filePath}");
+                }
+            }
+        }
+
+        private async Task SendSingleLogFileAsync(string callbackData, long chatId, CancellationToken cancellationToken)
+        {
+            // admin_log_yyyyMMdd
+            var datePart = callbackData.Substring("admin_log_".Length);
+            var logsDir = _loggerService.GetLogsDirectory();
+            var filePath = Path.Combine(logsDir, $"bot_{datePart}.log");
+
+            if (!File.Exists(filePath))
+            {
+                await _botClient.SendMessage(
+                    chatId: chatId,
+                    text: $"📭 Лог-файл за {datePart} не найден.",
+                    cancellationToken: cancellationToken);
+                return;
+            }
+
+            try
+            {
+                using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                await _botClient.SendDocument(
+                    chatId: chatId,
+                    document: InputFile.FromStream(stream, $"bot_{datePart}.log"),
+                    cancellationToken: cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _loggerService.LogError(ex, $"Failed to send log file: {filePath}");
+                await _botClient.SendMessage(
+                    chatId: chatId,
+                    text: "❌ Ошибка при отправке лог-файла.",
+                    cancellationToken: cancellationToken);
+            }
+        }
+
+        private async Task SendCompletedSessionsJsonAsync(long chatId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var filePath = _storageService.GetCompletedSessionsFilePath();
+
+                if (!File.Exists(filePath))
+                {
+                    await _botClient.SendMessage(
+                        chatId: chatId,
+                        text: "📭 Файл с результатами тестов не найден.",
+                        cancellationToken: cancellationToken);
+                    return;
+                }
+
+                using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var fileName = $"completed-sessions_{TimeHelper.NowMoscow:yyyyMMdd}.json";
+
+                await _botClient.SendDocument(
+                    chatId: chatId,
+                    document: InputFile.FromStream(stream, fileName),
+                    caption: $"📦 Результаты тестов\n📅 {TimeHelper.NowMoscow:dd.MM.yyyy HH:mm} (МСК)",
+                    cancellationToken: cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _loggerService.LogError(ex, "Failed to send completed sessions JSON");
+                await _botClient.SendMessage(
+                    chatId: chatId,
+                    text: "❌ Ошибка при отправке файла с результатами.",
+                    cancellationToken: cancellationToken);
+            }
+        }
+
+        private async Task HandleDeleteAdminAsync(
+            string callbackData, long chatId, long userId, CancellationToken cancellationToken)
+        {
+            if (!await _adminService.CanManageAdminsAsync(userId))
+            {
+                await _botClient.SendMessage(chatId: chatId,
+                    text: "⛔ У вас нет прав для удаления администраторов.",
+                    cancellationToken: cancellationToken);
+                return;
+            }
+
+            var indexStr = callbackData.Substring("admin_del_".Length);
+            if (!int.TryParse(indexStr, out var index))
+                return;
+
+            var admins = await _adminService.GetAdminsAsync();
+            if (index < 0 || index >= admins.Count)
+                return;
+
+            var admin = admins[index];
+            if (admin.Role == "owner")
+            {
+                await _botClient.SendMessage(chatId: chatId,
+                    text: "⛔ Нельзя удалить владельца.",
+                    cancellationToken: cancellationToken);
+                return;
+            }
+
+            var keyboard = new InlineKeyboardMarkup(new[]
+            {
+                new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("✅ Да, удалить", $"admin_delok_{index}"),
+                    InlineKeyboardButton.WithCallbackData("❌ Отмена", "admin_list_admins")
+                }
+            });
+
+            await _botClient.SendMessage(chatId: chatId,
+                text: $"⚠️ Вы уверены, что хотите удалить администратора {admin.UserName}?",
+                replyMarkup: keyboard,
+                cancellationToken: cancellationToken);
+        }
+
+        private async Task ConfirmDeleteAdminAsync(
+            string callbackData, long chatId, long userId, CancellationToken cancellationToken)
+        {
+            var indexStr = callbackData.Substring("admin_delok_".Length);
+            if (!int.TryParse(indexStr, out var index))
+                return;
+
+            var admins = await _adminService.GetAdminsAsync();
+            if (index < 0 || index >= admins.Count)
+                return;
+
+            var admin = admins[index];
+            bool result;
+
+            if (admin.UserId != 0)
+            {
+                result = await _adminService.RemoveAdminAsync(admin.UserId, userId);
+            }
+            else
+            {
+                result = await _adminService.RemoveAdminByUsernameAsync(admin.UserName, userId);
+            }
+
+            if (result)
+            {
+                await _botClient.SendMessage(chatId: chatId,
+                    text: $"✅ Администратор {admin.UserName} удалён.",
+                    cancellationToken: cancellationToken);
+                _loggerService.LogInfo($"Admin {admin.UserName} removed by user {userId}");
+            }
+            else
+            {
+                await _botClient.SendMessage(chatId: chatId,
+                    text: $"❌ Не удалось удалить администратора {admin.UserName}.",
+                    cancellationToken: cancellationToken);
+            }
         }
 
         private async Task SendErrorMessageAsync(long chatId, CancellationToken cancellationToken)
