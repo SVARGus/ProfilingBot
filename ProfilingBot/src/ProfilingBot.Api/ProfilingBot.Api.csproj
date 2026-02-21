@@ -7,9 +7,9 @@
     <UserSecretsId>cc7ca4ec-c2ad-4ac9-b260-e17787261e0a</UserSecretsId>
   </PropertyGroup>
 
-  <ItemGroup>
+  <!--<ItemGroup>
     <Compile Include="D:\My_Project_IT\Телеграмм-бот для TecForce\profiling-bot\ProfilingBot\src\ProfilingBot.Api\Program.cs" Link="Program.cs" />
-  </ItemGroup>
+  </ItemGroup>-->
 
   <ItemGroup>
     <PackageReference Include="System.Text.Json" Version="10.0.1" />

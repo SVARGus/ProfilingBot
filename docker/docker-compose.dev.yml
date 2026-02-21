@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  profiling-bot:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: profiling-bot-dev
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+      - "5001:5001"  # HTTPS дл€ разработки
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - BOT_TOKEN=${BOT_TOKEN}
+      - CONFIG_PATH=/app/config
+      - DATA_PATH=/app/data
+      - ASSETS_PATH=/app/assets
+    volumes:
+      # ћонтируем весь исходный код дл€ hot reload
+      - .:/src
+      - ./config:/app/config
+      - ./assets:/app/assets
+      - ./data:/app/data
+    command: dotnet watch run --project ProfilingBot.Api.csproj --urls http://0.0.0.0:5000
