@@ -1,15 +1,12 @@
 #!/bin/bash
 
-echo "Остановка контейнера..."
-docker-compose -f docker/docker-compose.yml down
+echo "РћСЃС‚Р°РЅРѕРІРєР° РєРѕРЅС‚РµР№РЅРµСЂР°..."
+docker compose -f docker/docker-compose.yml down
 
-echo "Обновление образа..."
-docker-compose -f docker/docker-compose.yml pull
+echo "РџРµСЂРµСЃР±РѕСЂРєР° РѕР±СЂР°Р·Р°..."
+docker compose -f docker/docker-compose.yml build --no-cache
 
-echo "Пересборка..."
-docker-compose -f docker/docker-compose.yml build --no-cache
+echo "Р—Р°РїСѓСЃРє..."
+docker compose -f docker/docker-compose.yml up -d
 
-echo "Запуск..."
-docker-compose -f docker/docker-compose.yml up -d
-
-echo "Обновление завершено!"
+echo "РћР±РЅРѕРІР»РµРЅРёРµ Р·Р°РІРµСЂС€РµРЅРѕ!"
