@@ -34,6 +34,8 @@ namespace ProfilingBot.Core.Services
         private string ActiveSessionsFilePath => Path.Combine(_dataPath, "active", "active-sessions.json");
         private string CompletedSessionsFilePath => Path.Combine(_dataPath, "completed", "completed-sessions.json");
 
+        public string GetCompletedSessionsFilePath() => CompletedSessionsFilePath;
+
         // === Активные сессии ===
 
         public async Task<TestSession?> GetActiveSessionAsync(Guid sessionId)

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using ProfilingBot.Core.Helpers;
 using ProfilingBot.Core.Interfaces;
 using ProfilingBot.Core.Models;
 using Telegram.Bot;
@@ -37,7 +38,8 @@ namespace ProfilingBot.Cloud.Handlers
             var userId = callbackQuery.From.Id;
             var chatId = callbackQuery.Message!.Chat.Id;
 
-            _loggerService.LogInfo($"Processing callback from user {userId}: {callbackData}");
+            var userName = callbackQuery.From.Username;
+            _loggerService.LogInfo($"Processing callback from user {userId} (@{userName}): {callbackData}");
 
             try
             {
@@ -348,7 +350,7 @@ namespace ProfilingBot.Cloud.Handlers
                 await _botClient.SendPhoto(
                     chatId: chatId,
                     photo: InputFile.FromStream(stream, "result.jpg"),
-                    caption: $"🎯 {personalityType.FullName}\n👤 {session.UserName}\n\n📅 {session.CompletedAt:dd.MM.yyyy}",
+                    caption: $"🎯 {personalityType.FullName}\n👤 {session.UserName}\n\n📅 {(session.CompletedAt.HasValue ? TimeHelper.ToMoscowTime(session.CompletedAt.Value).ToString("dd.MM.yyyy") : "")}",
                     cancellationToken: cancellationToken);
 
                 _loggerService.LogInfo($"Card generated and sent for session {session.Id}");

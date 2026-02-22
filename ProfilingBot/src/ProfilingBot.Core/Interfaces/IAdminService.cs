@@ -16,6 +16,7 @@ namespace ProfilingBot.Core.Interfaces
         Task<List<AdminUser>> GetAdminsAsync();
         Task<bool> AddAdminAsync(AdminUser admin, long addedByUserId);
         Task<bool> RemoveAdminAsync(long userIdToRemove, long removedByUserId);
+        Task<bool> RemoveAdminByUsernameAsync(string userName, long removedByUserId);
 
         // === СТАТИСТИКА (доступно всем админам) ===
         Task<DailyStats> GetDailyStatsAsync(DateTime date);

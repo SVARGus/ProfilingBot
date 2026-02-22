@@ -1,4 +1,5 @@
-﻿using ProfilingBot.Core.Interfaces;
+﻿using ProfilingBot.Core.Helpers;
+using ProfilingBot.Core.Interfaces;
 using ProfilingBot.Core.Models;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -30,12 +31,13 @@ namespace ProfilingBot.Cloud.Handlers
             var userId = message.From!.Id;
             var chatId = message.Chat.Id;
 
-            _loggerService.LogInfo($"Processing text message from user {userId}: '{text}'");
+            var userName = GetUserName(message.From);
+            _loggerService.LogInfo($"Processing text message from user {userId} (@{message.From?.Username}): '{text}'");
 
             // Обработка кнопки "Начать тест" (регистронезависимо)
             if (text.Equals("Начать тест", StringComparison.OrdinalIgnoreCase))
             {
-                await HandleStartTestButtonAsync(userId, GetUserName(message.From), chatId, cancellationToken);
+                await HandleStartTestButtonAsync(userId, userName, chatId, cancellationToken);
             }
             else
             {
@@ -103,7 +105,7 @@ namespace ProfilingBot.Cloud.Handlers
             var progress = existingSession.CurrentQuestionIndex - 1;
 
             var messageText = $"📝 У вас уже есть начатый тест.\n\n" +
-                             $"Вы начали его {existingSession.StartedAt:dd.MM.yyyy HH:mm}.\n" +
+                             $"Вы начали его {TimeHelper.ToMoscowTime(existingSession.StartedAt):dd.MM.yyyy HH:mm} (МСК).\n" +
                              $"Прогресс: {progress} из {totalQuestions} вопросов пройдено.\n\n" +
                              $"Что хотите сделать?";
 

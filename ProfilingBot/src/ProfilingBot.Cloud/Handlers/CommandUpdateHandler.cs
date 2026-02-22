@@ -28,7 +28,7 @@ namespace ProfilingBot.Cloud.Handlers
             var message = update.Message!;
             var command = message.Text!.Split(' ')[0].ToLowerInvariant();
 
-            _loggerService.LogInfo($"Processing command '{command}' from user {message.From?.Id}");
+            _loggerService.LogInfo($"Processing command '{command}' from user {message.From?.Id} (@{message.From?.Username})");
 
             switch (command)
             {
@@ -69,13 +69,15 @@ namespace ProfilingBot.Cloud.Handlers
 
         private async Task HandleHelpCommandAsync(Message message, CancellationToken cancellationToken)
         {
-            var helpText = @"Это бот для тестирования личности. 
-
-                Доступные команды:
-                /start - начать тест
-                /help - показать эту справку
-
-                Просто нажмите кнопку 'Начать тест' после команды /start.";
+            var helpText = "Привет! Я — бот для определения типа личности.\n\n" +
+                          "Пройди тест из 8 вопросов и узнай свой тип!\n\n" +
+                          "Доступные команды:\n" +
+                          "/start — начать работу с ботом\n" +
+                          "/help — показать эту справку\n" +
+                          "/admin — админ-панель (для администраторов)\n\n" +
+                          "Нажми кнопку «Начать тест» для старта.\n\n" +
+                          "——————————————\n" +
+                          "Разработка чат-ботов: @SVARGuser";
 
             await _botClient.SendMessage(
                 chatId: message.Chat.Id,

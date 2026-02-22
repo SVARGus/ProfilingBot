@@ -1,4 +1,5 @@
-﻿using ProfilingBot.Core.Interfaces;
+﻿using ProfilingBot.Core.Helpers;
+using ProfilingBot.Core.Interfaces;
 using ProfilingBot.Core.Models;
 using ClosedXML.Excel;
 
@@ -26,7 +27,7 @@ namespace ProfilingBot.Core.Services
                 using var workbook = new XLWorkbook();
                 var worksheet = workbook.Worksheets.Add("Тесты");
 
-                // Заголовки
+                // Заголовки — основные
                 worksheet.Cell(1, 1).Value = "ID сессии";
                 worksheet.Cell(1, 2).Value = "ID пользователя";
                 worksheet.Cell(1, 3).Value = "Имя пользователя";
@@ -35,8 +36,15 @@ namespace ProfilingBot.Core.Services
                 worksheet.Cell(1, 6).Value = "Тип личности";
                 worksheet.Cell(1, 7).Value = "Длительность (мин)";
 
+                // Заголовки — ответы по вопросам (колонки 8-15)
+                int totalQuestions = 8;
+                for (int q = 1; q <= totalQuestions; q++)
+                {
+                    worksheet.Cell(1, 7 + q).Value = $"Вопрос {q}";
+                }
+
                 // Стиль заголовков
-                var headerRange = worksheet.Range(1, 1, 1, 7);
+                var headerRange = worksheet.Range(1, 1, 1, 7 + totalQuestions);
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
 
@@ -47,14 +55,27 @@ namespace ProfilingBot.Core.Services
                     worksheet.Cell(row, 1).Value = session.Id.ToString();
                     worksheet.Cell(row, 2).Value = session.UserId;
                     worksheet.Cell(row, 3).Value = session.UserName;
-                    worksheet.Cell(row, 4).Value = session.StartedAt;
-                    worksheet.Cell(row, 5).Value = session.CompletedAt;
+                    worksheet.Cell(row, 4).Value = TimeHelper.ToMoscowTime(session.StartedAt);
+                    worksheet.Cell(row, 5).Value = session.CompletedAt.HasValue
+                        ? TimeHelper.ToMoscowTime(session.CompletedAt.Value)
+                        : (DateTime?)null;
                     worksheet.Cell(row, 6).Value = session.ResultNamePersonalityType ?? "Не определен";
 
                     if (session.CompletedAt.HasValue)
                     {
                         var duration = (session.CompletedAt.Value - session.StartedAt).TotalMinutes;
                         worksheet.Cell(row, 7).Value = Math.Round(duration, 2);
+                    }
+
+                    // Ответы по вопросам: session.Answers[questionId] → answerId
+                    // Ключ — оригинальный QuestionId, поэтому данные попадают
+                    // в правильный столбец независимо от порядка показа
+                    for (int q = 1; q <= totalQuestions; q++)
+                    {
+                        if (session.Answers.TryGetValue(q, out var answerId))
+                        {
+                            worksheet.Cell(row, 7 + q).Value = answerId;
+                        }
                     }
 
                     row++;

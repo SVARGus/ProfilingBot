@@ -1,28 +1,28 @@
 #!/bin/bash
 
-# Проверяем наличие .env файла
+# РџСЂРѕРІРµСЂСЏРµРј РЅР°Р»РёС‡РёРµ .env С„Р°Р№Р»Р°
 if [ ! -f .env ]; then
-    echo "Создайте файл .env на основе .env.example"
+    echo "РЎРѕР·РґР°РµРј С„Р°Р№Р» .env РёР· С€Р°Р±Р»РѕРЅР° .env.example"
     cp .env.example .env
-    echo "Отредактируйте .env файл и добавьте BOT_TOKEN"
+    echo "РћС‚СЂРµРґР°РєС‚РёСЂСѓР№С‚Рµ .env С„Р°Р№Р» Рё СѓРєР°Р¶РёС‚Рµ BOT_TOKEN"
     exit 1
 fi
 
-# Загружаем переменные окружения
+# Р—Р°РіСЂСѓР¶Р°РµРј РїРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏ
 source .env
 
-# Проверяем BOT_TOKEN
+# РџСЂРѕРІРµСЂСЏРµРј BOT_TOKEN
 if [ -z "$BOT_TOKEN" ] || [ "$BOT_TOKEN" = "your_bot_token_here" ]; then
-    echo "Ошибка: BOT_TOKEN не установлен в .env файле"
+    echo "РћС€РёР±РєР°: BOT_TOKEN РЅРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅ РІ .env С„Р°Р№Р»Рµ"
     exit 1
 fi
 
-# Создаем необходимые директории
+# РЎРѕР·РґР°РµРј РЅРµРѕР±С…РѕРґРёРјС‹Рµ РґРёСЂРµРєС‚РѕСЂРёРё
 mkdir -p config assets data/active data/completed data/exports data/logs
 
-echo "Запуск Profiling Bot в Docker..."
-docker-compose -f docker/docker-compose.yml up -d
+echo "Р—Р°РїСѓСЃРє Profiling Bot РІ Docker..."
+docker compose -f docker/docker-compose.yml up -d --build
 
-echo "Контейнер запущен!"
-echo "Логи: docker-compose logs -f"
-echo "Остановка: docker-compose down"
+echo "Р—Р°РїСѓСЃРє Р·Р°РІРµСЂС€РµРЅ!"
+echo "Р›РѕРіРё: docker compose -f docker/docker-compose.yml logs -f"
+echo "РћСЃС‚Р°РЅРѕРІРєР°: docker compose -f docker/docker-compose.yml down"

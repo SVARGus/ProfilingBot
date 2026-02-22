@@ -13,6 +13,7 @@ public interface IStorageService
     Task<List<TestSession>> GetAllActiveSessionsAsync();
 
     // Завершенные сессии
+    string GetCompletedSessionsFilePath();
     Task SaveCompletedSessionAsync(TestSession session);
     Task<List<TestSession>> GetCompletedSessionsAsync(DateTime? from = null, DateTime? to = null);
     Task<int> GetCompletedSessionsCountAsync();

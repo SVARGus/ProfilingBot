@@ -11,5 +11,9 @@ namespace ProfilingBot.Core.Interfaces
 
         // Для отладки
         void LogDebug(string message);
+
+        // Доступ к лог-файлам
+        string GetLogsDirectory();
+        List<string> GetLogFiles(int lastDays = 7);
     }
 }
