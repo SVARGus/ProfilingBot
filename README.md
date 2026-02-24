@@ -692,57 +692,70 @@ docker compose -f docker/docker-compose.yml ps
 docker compose -f docker/docker-compose.yml logs -f
 ```
 
-### Шаг 6: Настройка вебхука Telegram
+### Шаг 6: Настройка HTTPS (Nginx + SSL)
 
-После запуска контейнера нужно зарегистрировать вебхук — URL, на который Telegram будет отправлять обновления.
-
-**Вариант A — с доменом и SSL (рекомендуется для production):**
-```bash
-curl -F "url=https://ваш-домен.ru/api/bot/webhook" \
-     https://api.telegram.org/bot<BOT_TOKEN>/setWebhook
-```
-
-**Вариант B — с SSH-туннелем (для тестирования):**
-```bash
-# Запустите SSH-туннель
-ssh -R 80:localhost:5000 nokey@localhost.run
-
-# Используйте полученный URL
-curl -F "url=https://xxxxx.lhr.life/api/bot/webhook" \
-     https://api.telegram.org/bot<BOT_TOKEN>/setWebhook
-```
-
-**Проверка вебхука:**
-```bash
-curl https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo
-```
-
-### Шаг 7: Проверка работоспособности
-
-```bash
-# Health check
-curl http://localhost:5000/health
-```
-
-Отправьте `/start` вашему боту в Telegram — он должен ответить приветственным сообщением.
-
----
-
-## Настройка HTTPS с доменом (опционально)
-
-Для production-окружения рекомендуется настроить HTTPS через Nginx reverse proxy и Let's Encrypt.
-
-### Установка Nginx
+Telegram требует HTTPS для вебхуков. Установите Nginx как reverse proxy:
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y nginx
 ```
 
-### Конфигурация Nginx
+Выберите вариант настройки SSL в зависимости от того, есть ли у вас доменное имя.
 
-Создайте файл `/etc/nginx/sites-available/profiling-bot`:
+#### Вариант A — без домена, только IP (самоподписанный сертификат)
 
+> **Примечание:** Let's Encrypt **не выдаёт** сертификаты на IP-адреса. Для работы без домена используется самоподписанный сертификат, который передаётся Telegram при регистрации вебхука.
+
+**1. Сгенерируйте сертификат (замените `YOUR_IP` на IP вашего сервера):**
+```bash
+sudo openssl req -newkey rsa:2048 -sha256 -nodes \
+  -keyout /etc/ssl/private/bot.key \
+  -x509 -days 3650 \
+  -out /etc/ssl/certs/bot.pem \
+  -subj "/CN=YOUR_IP"
+```
+
+**2. Создайте конфиг Nginx:**
+```bash
+sudo nano /etc/nginx/sites-available/profiling-bot
+```
+
+Вставьте (замените `YOUR_IP`):
+```nginx
+server {
+    listen 443 ssl;
+    server_name YOUR_IP;
+
+    ssl_certificate /etc/ssl/certs/bot.pem;
+    ssl_certificate_key /etc/ssl/private/bot.key;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+**3. Активируйте и проверьте:**
+```bash
+sudo ln -s /etc/nginx/sites-available/profiling-bot /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### Вариант B — с доменом (Let's Encrypt)
+
+**1. Создайте конфиг Nginx:**
+```bash
+sudo nano /etc/nginx/sites-available/profiling-bot
+```
+
+Вставьте (замените `ваш-домен.ru`):
 ```nginx
 server {
     listen 80;
@@ -751,42 +764,61 @@ server {
     location / {
         proxy_pass http://127.0.0.1:5000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection keep-alive;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
     }
 }
 ```
 
+**2. Активируйте конфиг:**
 ```bash
-# Активация конфигурации
 sudo ln -s /etc/nginx/sites-available/profiling-bot /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Получение SSL-сертификата (Let's Encrypt)
-
+**3. Получите SSL-сертификат:**
 ```bash
-# Установка Certbot
 sudo apt-get install -y certbot python3-certbot-nginx
-
-# Получение сертификата (автоматически настроит Nginx)
 sudo certbot --nginx -d ваш-домен.ru
-
-# Проверка автоматического обновления
 sudo certbot renew --dry-run
 ```
 
-После получения сертификата обновите вебхук:
+### Шаг 7: Настройка вебхука Telegram
+
+После настройки HTTPS зарегистрируйте вебхук — URL, на который Telegram будет отправлять обновления.
+
+**Если используете IP + самоподписанный сертификат (вариант A):**
+```bash
+curl -F "url=https://YOUR_IP/api/bot/webhook" \
+     -F "certificate=@/etc/ssl/certs/bot.pem" \
+     https://api.telegram.org/bot<BOT_TOKEN>/setWebhook
+```
+> Флаг `certificate=@...` передаёт сертификат Telegram, чтобы он доверял самоподписанной подписи.
+
+**Если используете домен + Let's Encrypt (вариант B):**
 ```bash
 curl -F "url=https://ваш-домен.ru/api/bot/webhook" \
      https://api.telegram.org/bot<BOT_TOKEN>/setWebhook
 ```
+
+**Проверка вебхука:**
+```bash
+curl https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo
+```
+
+В ответе должно быть `"url":"https://...","has_custom_certificate":true` (для варианта A) или `"has_custom_certificate":false` (для варианта B), и отсутствие `last_error_message`.
+
+### Шаг 8: Проверка работоспособности
+
+```bash
+# Health check
+curl http://localhost:5000/health
+```
+
+Отправьте `/start` вашему боту в Telegram — он должен ответить приветственным сообщением.
 
 ---
 
@@ -822,6 +854,39 @@ docker compose -f docker/docker-compose.yml up -d --build
 ```bash
 ./scripts/update-docker.sh
 ```
+
+### Смена IP-адреса сервера (динамический IP)
+
+Если IP-адрес сервера изменился (перезапуск VM, смена провайдера и т.д.), необходимо обновить сертификат, конфиг Nginx и вебхук.
+
+```bash
+# 1. Узнайте новый IP
+curl -s ifconfig.me
+
+# 2. Перегенерируйте самоподписанный сертификат с новым IP
+sudo openssl req -newkey rsa:2048 -sha256 -nodes \
+  -keyout /etc/ssl/private/bot.key \
+  -x509 -days 3650 \
+  -out /etc/ssl/certs/bot.pem \
+  -subj "/CN=НОВЫЙ_IP"
+
+# 3. Обновите IP в конфиге Nginx
+sudo nano /etc/nginx/sites-available/profiling-bot
+# Замените старый IP на новый в строке server_name
+
+# 4. Перезагрузите Nginx
+sudo nginx -t && sudo systemctl reload nginx
+
+# 5. Перерегистрируйте вебхук с новым IP и сертификатом
+curl -F "url=https://НОВЫЙ_IP/api/bot/webhook" \
+     -F "certificate=@/etc/ssl/certs/bot.pem" \
+     https://api.telegram.org/bot<BOT_TOKEN>/setWebhook
+
+# 6. Проверьте
+curl https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo
+```
+
+> **Совет:** если IP меняется часто, рассмотрите привязку домена к серверу и использование Let's Encrypt (вариант B в шаге 6). В этом случае достаточно обновить A-запись DNS, и вебхук менять не нужно.
 
 ### Резервное копирование данных
 
