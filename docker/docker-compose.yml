@@ -1,14 +1,14 @@
-version: '3.8'
-
 services:
   profiling-bot:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile
     container_name: profiling-bot
     restart: unless-stopped
+    env_file:
+      - ../.env
     ports:
-      - "5000:5000"  # Локальный порт:порт контейнера
+      - "5000:5000"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - BOT_TOKEN=${BOT_TOKEN}
@@ -16,14 +16,10 @@ services:
       - DATA_PATH=/app/data
       - ASSETS_PATH=/app/assets
     volumes:
-      # Монтируем конфигурацию (только для чтения)
-      - ./config:/app/config:ro
-      # Монтируем ассеты (только для чтения)
-      - ./assets:/app/assets:ro
-      # Монтируем данные (чтение/запись)
-      - ./data:/app/data
-      # Монтируем логи
-      - ./logs:/app/data/logs
+      - ../config:/app/config:ro
+      - ../assets:/app/assets:ro
+      - ../data:/app/data
+      - ../logs:/app/data/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s

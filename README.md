@@ -616,7 +616,10 @@ sudo sh get-docker.sh
 sudo usermod -aG docker $USER
 # После этого нужно перелогиниться или выполнить: newgrp docker
 
-# Установка Docker Compose
+# Установка Docker Compose (если не установлен)
+# Вариант A — Ubuntu 24.04+:
+sudo apt-get install -y docker-compose-v2
+# Вариант B — другие дистрибутивы:
 sudo apt-get install -y docker-compose-plugin
 
 # Проверка установки
@@ -628,8 +631,8 @@ docker compose version
 
 ```bash
 # Клонирование репозитория
-git clone <URL_РЕПОЗИТОРИЯ>
-cd profiling-bot
+git clone https://github.com/SVARGus/ProfilingBot.git
+cd ProfilingBot
 
 # Создание файла переменных окружения
 cp .env.example .env
@@ -896,6 +899,6 @@ tar -xzf backup_YYYYMMDD.tar.gz
 
 ---
 
-*Документация обновлена: 2026-02-21*
+*Документация обновлена: 2026-02-24*
 *Версия: 2.0.0*
-*Статус: Активная разработка*
+*Статус: Production*
