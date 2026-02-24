@@ -69,11 +69,11 @@ namespace ProfilingBot.Cloud.Handlers
                 // Получаем вступительное сообщение
                 var introMessage = await _configurationService.GetIntroMessageAsync();
 
-                // Отправляем вступительное сообщение
-                await _botClient.SendMessage(
-                    chatId: chatId,
-                    text: introMessage,
-                    cancellationToken: cancellationToken);
+                //// Отправляем вступительное сообщение
+                //await _botClient.SendMessage(
+                //    chatId: chatId,
+                //    text: introMessage,
+                //    cancellationToken: cancellationToken);
 
                 // Небольшая пауза для лучшего UX
                 await Task.Delay(500, cancellationToken);

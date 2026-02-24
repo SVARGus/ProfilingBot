@@ -461,7 +461,7 @@ namespace ProfilingBot.Core.Services
         private BotConfig GetDefaultBotConfig()
         {
             return new BotConfig(
-                name: "Профайлинг TecForce",
+                name: "NeuroProfile",
                 welcomeMessage: GetDefaultWelcomeMessage(),
                 channelLink: "t.me/jsaland",
                 introMessage: GetDefaultIntroMessage(),
@@ -473,7 +473,7 @@ namespace ProfilingBot.Core.Services
 
         private string GetDefaultWelcomeMessage()
         {
-            return "Добро пожаловать! Это тест-ключ к знакомству с собой! Он поможет определить твой тип личности, а эксперт расскажет, что делать с этой информацией :) Если интересно узнать больше, подписывайся на канал t.me/jsland";
+            return "Добро пожаловать! Это тест-ключ к знакомству с собой! Он поможет определить твой тип личности, а эксперт расскажет, что делать с этой информацией :) \nЕсли интересно узнать больше, подписывайся на канал t.me/jsland";
         }
 
         private string GetDefaultIntroMessage()

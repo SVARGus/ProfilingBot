@@ -56,6 +56,10 @@ namespace ProfilingBot.Cloud.Handlers
                 {
                     await HandleRestartCallbackAsync(callbackData, userId, chatId, cancellationToken);
                 }
+                else if (callbackData?.StartsWith("starttest_") == true)
+                {
+                    await HandleStartTestCallbackAsync(callbackData, callbackQuery.From, chatId, cancellationToken);
+                }
                 else if (callbackData?.StartsWith("getcard_") == true ||
                          callbackData?.StartsWith("share_") == true)
                 {
@@ -230,6 +234,43 @@ namespace ProfilingBot.Cloud.Handlers
                 {
                     await SendQuestionAsync(session, question, chatId, cancellationToken);
                 }
+            }
+        }
+
+        private async Task HandleStartTestCallbackAsync(
+            string callbackData,
+            User fromUser,
+            long chatId,
+            CancellationToken cancellationToken)
+        {
+            var userId = fromUser.Id;
+            var sessionIdStr = callbackData.Substring("starttest_".Length);
+            if (Guid.TryParse(sessionIdStr, out var _))
+            {
+                // Проверяем, есть ли уже активная сессия
+                var existingSession = await _testService.GetActiveSessionAsync(userId);
+                if (existingSession != null)
+                {
+                    _loggerService.LogWarning($"User {userId} already has active session {existingSession.Id}, restarting");
+                }
+
+                var userName = GetUserName(fromUser);
+                var session = await _testService.StartTestAsync(userId, userName);
+
+                await _botClient.SendMessage(
+                    chatId: chatId,
+                    text: "🔄 Начинаем тест заново!",
+                    cancellationToken: cancellationToken);
+
+                await Task.Delay(500, cancellationToken);
+
+                var question = await _testService.GetCurrentQuestionAsync(session.Id);
+                if (question != null)
+                {
+                    await SendQuestionAsync(session, question, chatId, cancellationToken);
+                }
+
+                _loggerService.LogInfo($"Test restarted for user {userId}, new session {session.Id}");
             }
         }
 

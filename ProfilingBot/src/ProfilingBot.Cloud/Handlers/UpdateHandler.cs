@@ -56,9 +56,9 @@ namespace ProfilingBot.Cloud.Handlers
             // ========== ДОБАВЛЕНО: Новый формат сообщения ==========
             var progressBar = GetProgressBar(questionNumber, totalQuestions);
 
-            var messageText = $"*Вопрос {questionNumber} из {totalQuestions}* {progressBar}\n\n" +
+            var messageText = $"*Вопрос {questionNumber}*\n\n" +
                               $"\"{question.Text}\"\n\n" +
-                              string.Join("\n", orderedAnswers.Select((a, i) => $"*Вариант {i + 1}:* {a.Text}"));
+                              string.Join("\n", orderedAnswers.Select((a, i) => $"*Вариант {i + 1}:* {a.Text}\n"));
             // ======================================================
 
             // Создаем инлайн-кнопки для каждого варианта ответа
@@ -137,6 +137,10 @@ namespace ProfilingBot.Cloud.Handlers
                 new[]
                 {
                     InlineKeyboardButton.WithUrl("📢 Канал проекта", "t.me/jsaland")
+                },
+                new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("🔄 Пройти тест заново", $"starttest_{session.Id}")
                 }
             };
 

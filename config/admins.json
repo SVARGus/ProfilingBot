@@ -16,14 +16,5 @@
     "AddedBy": "system",
     "IsOwner": true,
     "CanManageAdmins": true
-  },
-  {
-    "UserId": 0,
-    "UserName": "@trianadefox",
-    "Role": "admin",
-    "AddedAt": "2026-02-10T13:07:13.5256666Z",
-    "AddedBy": "@SVARGuser",
-    "IsOwner": false,
-    "CanManageAdmins": false
   }
 ]
