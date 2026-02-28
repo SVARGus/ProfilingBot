@@ -5,7 +5,6 @@ namespace ProfilingBot.Core.Services
     public class FileLoggerService : ILoggerService
     {
         private readonly string _logsDirectory;
-        private readonly string _logFilePath;
         private readonly object _lock = new();
 
         public FileLoggerService(string logsDirectory)
@@ -16,10 +15,12 @@ namespace ProfilingBot.Core.Services
             {
                 Directory.CreateDirectory(logsDirectory);
             }
+        }
 
-            // Файл логов на текущий день
+        private string GetCurrentLogFilePath()
+        {
             var date = DateTime.Now.ToString("yyyyMMdd");
-            _logFilePath = Path.Combine(logsDirectory, $"bot_{date}.log");
+            return Path.Combine(_logsDirectory, $"bot_{date}.log");
         }
 
         public void LogInfo(string message)
@@ -79,7 +80,7 @@ namespace ProfilingBot.Core.Services
             {
                 try
                 {
-                    File.AppendAllText(_logFilePath, logEntry + Environment.NewLine);
+                    File.AppendAllText(GetCurrentLogFilePath(), logEntry + Environment.NewLine);
                     Console.WriteLine(logEntry); // Дублируем в консоль для отладки
                 }
                 catch (Exception ex)

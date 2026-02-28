@@ -66,6 +66,15 @@ namespace ProfilingBot.Core.Services
         public async Task<List<AdminUser>> GetAdminsAsync()
         {
             await EnsureCacheFreshAsync();
+
+            _logger.LogInfo($"===== ADMIN LIST REQUESTED =====");
+            _logger.LogInfo($"Total admins: {_cachedAdmins.Count}");
+            foreach (var admin in _cachedAdmins)
+            {
+                _logger.LogInfo($"  - ID: {admin.UserId}, Name: {admin.UserName}, Role: {admin.Role}");
+            }
+            _logger.LogInfo($"===== END ADMIN LIST =====");
+
             return _cachedAdmins.OrderBy(a => a.Role == "owner" ? 0 : 1)
                                .ThenBy(a => a.AddedAt)
                                .ToList();
@@ -318,43 +327,10 @@ namespace ProfilingBot.Core.Services
                 var admins = JsonSerializer.Deserialize<List<AdminUser>>(json)
                     ?? new List<AdminUser>();
 
-                // ДОБАВЛЯЕМ ДИАГНОСТИКУ
-                _logger.LogInfo($"===== ADMIN LOADING DIAGNOSTICS =====");
-                _logger.LogInfo($"Raw JSON length: {json.Length} chars");
-                _logger.LogInfo($"Deserialized {admins.Count} admins:");
-
-                foreach (var admin in admins)
-                {
-                    _logger.LogInfo($"  - ID: {admin.UserId}, Name: {admin.UserName}, Role: {admin.Role}");
-                }
-
-                // Проверяем, есть ли owner с ненулевым ID
-                //var owners = admins.Where(a => a.Role == "owner" && a.UserId != 0).ToList();
-                //if (!owners.Any())
-                //{
-                //    _logger.LogWarning($"No valid owner found (with non-zero ID)! Owners in config: {admins.Count(a => a.Role == "owner")}");
-                //    _logger.LogWarning($"Adding you as owner: ID=1088014818, Name=@SVARGuser");
-
-                //    // Добавляем вас как owner
-                //    admins.Add(new AdminUser
-                //    {
-                //        UserId = 1088014818,
-                //        UserName = "@SVARGuser",
-                //        Role = "owner",
-                //        AddedAt = DateTime.UtcNow,
-                //        AddedBy = "system_fix"
-                //    });
-                //}
-                //else
-                //{
-                //    _logger.LogInfo($"Found {owners.Count} valid owner(s). First owner ID: {owners.First().UserId}");
-                //}
-
                 _cachedAdmins = admins;
                 _lastCacheUpdate = DateTime.UtcNow;
 
-                _logger.LogInfo($"Total cached admins: {_cachedAdmins.Count}");
-                _logger.LogInfo($"===== END DIAGNOSTICS =====");
+                _logger.LogDebug($"Loaded {_cachedAdmins.Count} admins from config");
             }
             catch (Exception ex)
             {

@@ -15,7 +15,7 @@ services:
       - DATA_PATH=/app/data
       - ASSETS_PATH=/app/assets
     volumes:
-      - ../config:/app/config:ro
+      - ../config:/app/config
       - ../assets:/app/assets:ro
       - ../data:/app/data
       - ../logs:/app/data/logs

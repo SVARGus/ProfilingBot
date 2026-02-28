@@ -34,7 +34,7 @@ namespace ProfilingBot.Core.Services
                 worksheet.Cell(1, 4).Value = "Дата начала";
                 worksheet.Cell(1, 5).Value = "Дата завершения";
                 worksheet.Cell(1, 6).Value = "Тип личности";
-                worksheet.Cell(1, 7).Value = "Длительность (мин)";
+                worksheet.Cell(1, 7).Value = "Длительность (мин:сек)";
 
                 // Заголовки — ответы по вопросам (колонки 8-15)
                 int totalQuestions = 8;
@@ -63,8 +63,10 @@ namespace ProfilingBot.Core.Services
 
                     if (session.CompletedAt.HasValue)
                     {
-                        var duration = (session.CompletedAt.Value - session.StartedAt).TotalMinutes;
-                        worksheet.Cell(row, 7).Value = Math.Round(duration, 2);
+                        var duration = session.CompletedAt.Value - session.StartedAt;
+                        var minutes = (int)duration.TotalMinutes;
+                        var seconds = duration.Seconds;
+                        worksheet.Cell(row, 7).Value = $"{minutes}:{seconds:D2}";
                     }
 
                     // Ответы по вопросам: session.Answers[questionId] → answerId
